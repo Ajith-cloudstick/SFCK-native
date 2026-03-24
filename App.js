@@ -12,11 +12,22 @@ import { AppProvider, AppContext } from './src/context/AppContext';
 import EstateSelectScreen from './src/screens/EstateSelectScreen';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import WorkScreen from './src/screens/WorkScreen';
+import WorkDetailScreen from './src/screens/WorkDetailScreen';
 import Toast from './src/components/Toast';
 import { COLORS, FONTS } from './src/theme/theme';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+const WorkStack = createStackNavigator();
+
+function WorkTabNavigator() {
+  return (
+    <WorkStack.Navigator screenOptions={{ headerShown: false, animationEnabled: true }}>
+      <WorkStack.Screen name="WorkList" component={WorkScreen} />
+      <WorkStack.Screen name="WorkDetail" component={WorkDetailScreen} />
+    </WorkStack.Navigator>
+  );
+}
 
 function MainTabs() {
   return (
@@ -44,7 +55,7 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Attendance" component={AttendanceScreen} />
-      <Tab.Screen name="Work" component={WorkScreen} />
+      <Tab.Screen name="Work" component={WorkTabNavigator} />
     </Tab.Navigator>
   );
 }

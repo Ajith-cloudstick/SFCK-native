@@ -56,16 +56,18 @@ export default function AttendanceScreen() {
 
       {/* Search row (inside this screen only) */}
       <View style={styles.searchRow}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search name or ID e.g. 3412..."
-          placeholderTextColor={COLORS.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <TouchableOpacity style={styles.scanBtn} onPress={() => setScanVisible(true)} activeOpacity={0.88}>
-          <Feather name="maximize" size={15} color={COLORS.primaryLight} />
-          <Text style={styles.scanText}>Scan ID</Text>
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={20} color={COLORS.textSecondary} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name or ID..."
+            placeholderTextColor={COLORS.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+        <TouchableOpacity style={styles.scanBtn} onPress={() => setScanVisible(true)} activeOpacity={0.9}>
+          <Feather name="maximize" size={20} color={COLORS.white} />
         </TouchableOpacity>
       </View>
 
@@ -129,35 +131,41 @@ const styles = StyleSheet.create({
   },
   searchRow: {
     flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 12,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 0,
-    gap: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    height: 44,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontFamily: FONTS.monoRegular,
-    fontSize: 13,
+    height: 48,
+    fontFamily: FONTS.sansRegular,
+    fontSize: 15,
     color: COLORS.textPrimary,
   },
   scanBtn: {
-    flexDirection: 'row',
+    width: 48,
+    height: 48,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceGreen,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    height: 44,
-    gap: 6,
-  },
-  scanText: {
-    fontFamily: FONTS.sansMedium,
-    fontSize: 13,
-    color: COLORS.primaryLight,
+    justifyContent: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   filterRow: {
     flexDirection: 'row',

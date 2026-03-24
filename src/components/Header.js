@@ -17,8 +17,10 @@ export default function Header({ onSearchVisible }) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.bar}>
-        <Text style={styles.brand}>SFCK Supervisor</Text>
-        <Text style={styles.estate} numberOfLines={1}>{supervisorEstate || ''}</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.estate} numberOfLines={1}>{supervisorEstate || 'Select Estate'}</Text>
+          <Text style={styles.date}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Text>
+        </View>
         <TouchableOpacity style={styles.menuBtn} onPress={() => setMenuVisible(true)} activeOpacity={0.7}>
           <Text style={styles.menuIcon}>⋮</Text>
         </TouchableOpacity>
@@ -47,19 +49,23 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  brand: {
-    fontFamily: FONTS.sansMedium,
-    fontSize: 13,
-    color: COLORS.primaryLight,
-    marginRight: 8,
+  titleContainer: {
+    flex: 1,
+    marginRight: 16,
   },
   estate: {
-    flex: 1,
+    fontFamily: FONTS.sansMedium,
+    fontSize: 24,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  date: {
     fontFamily: FONTS.sansRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.textSecondary,
   },
   menuBtn: {

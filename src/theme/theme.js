@@ -4,7 +4,7 @@ export const COLORS = {
   surfaceGreen: '#EAF3DE', // --green-light (surfaces, avatar bg)
   warning: '#BA7517', // --amber (late/warning)
   warningLight: '#FAEEDA', // --amber-light (late surfaces)
-  background: '#F1EFE8', // --gray-bg (page background, stats strip)
+  background: '#f8f8f8ff', // --gray-bg (page background, stats strip)
   border: '#D3D1C7', // --gray-border (all 1px borders)
   textSecondary: '#888780', // --gray-mid (secondary text, labels)
   textPrimary: '#1C1C1A', // --black (primary text)

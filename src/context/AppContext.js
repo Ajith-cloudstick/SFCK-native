@@ -54,6 +54,15 @@ export const AppProvider = ({ children }) => {
     return isLateNow;
   };
 
+  const changeEmployeeEstate = (empId, newEstate) => {
+    setEmployees(prev => prev.map(emp => {
+      if (emp.id === empId) {
+        return { ...emp, estate: newEstate };
+      }
+      return emp;
+    }));
+  };
+
   const assignToWorkItem = (itemId, empId) => {
     setWorkItems(prev => prev.map(item => {
       if (item.id === itemId) {
@@ -74,10 +83,18 @@ export const AppProvider = ({ children }) => {
   };
 
   const addCollection = (collection) => {
-    setCollections(prev => [
-      { ...collection, id: Date.now().toString(), timestamp: new Date().toISOString() },
-      ...prev
-    ]);
+    setCollections(prev => {
+      const idx = prev.findIndex(c => c.workItemId === collection.workItemId && c.employeeId === collection.employeeId);
+      if (idx !== -1) {
+         const newArr = [...prev];
+         newArr[idx] = { ...prev[idx], ...collection, timestamp: new Date().toISOString() };
+         return newArr;
+      }
+      return [
+        { ...collection, id: Date.now().toString(), timestamp: new Date().toISOString() },
+        ...prev
+      ];
+    });
   };
 
   return (
@@ -85,7 +102,7 @@ export const AppProvider = ({ children }) => {
       employees, workItems, collections,
       toastMessage, toastType,
       supervisorEstate, setSupervisorEstate,
-      showToast, markEmployee,
+      showToast, markEmployee, changeEmployeeEstate,
       assignToWorkItem, removeFromWorkItem, addCollection,
     }}>
       {children}
