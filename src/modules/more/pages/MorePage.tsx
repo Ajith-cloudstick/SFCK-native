@@ -3,16 +3,17 @@ import { ScrollView, StyleSheet } from "react-native";
 
 import { Screen } from "@/common/components/layout/Screen";
 import { SectionTitle } from "@/common/components/layout/SectionTitle";
-import { Badge } from "@/common/components/ui/Badge";
 import { Card } from "@/common/components/ui/Card";
 import { ListRow } from "@/common/components/ui/ListRow";
 import { SegmentedControl } from "@/common/components/ui/SegmentedControl";
 import { Text } from "@/common/components/ui/Text";
 import { APP_VERSION } from "@/common/config/appConfig";
 import { useLanguageStore, useT, type Language } from "@/common/i18n";
+import { useSyncSummary } from "@/common/sync/syncStore";
 import { spacing } from "@/common/theme/tokens";
-import { SessionHeader } from "@/modules/session/components/SessionHeader";
-import { useSession, useSessionStore } from "@/modules/session/store/sessionStore";
+import { useAuthStore } from "@/modules/auth/store/authStore";
+import { CentreHeader } from "@/modules/centre/components/CentreHeader";
+import { useCentreDayStore } from "@/modules/centre/store/centreDayStore";
 
 const languageOptions: { value: Language; label: string }[] = [
 	{ value: "en", label: "English" },
@@ -24,29 +25,33 @@ export default function MorePage() {
 	const router = useRouter();
 	const language = useLanguageStore((s) => s.language);
 	const setLanguage = useLanguageStore((s) => s.setLanguage);
-	const clear = useSessionStore((s) => s.clear);
-	const { estate, centre } = useSession();
-
-	const changeContext = () => {
-		clear();
-		router.replace("/");
-	};
+	const session = useAuthStore((s) => s.session);
+	const day = useCentreDayStore((s) => s.serverDay);
+	const { pending, failed } = useSyncSummary();
+	const manyCentres = (session?.scope.ccs.length ?? 0) > 1;
 
 	return (
-		<Screen header={<SessionHeader />}>
+		<Screen header={<CentreHeader />}>
 			<ScrollView contentContainerStyle={styles.content}>
 				<SectionTitle title={t("more.language")} />
 				<SegmentedControl options={languageOptions} value={language} onChange={setLanguage} />
 
 				<SectionTitle title={t("more.context")} />
 				<Card padded={false} style={styles.group}>
-					<ListRow icon="map-pin" title={centre?.name ?? ""} subtitle={`${centre?.code ?? ""} · ${estate?.name ?? ""}`} />
-					<ListRow icon="repeat" title={t("more.changeContext")} onPress={changeContext} chevron divider={false} />
+					<ListRow icon="user" title={session?.user.name ?? ""} subtitle={session?.user.role.name ?? ""} />
+					<ListRow
+						icon="map-pin"
+						title={day?.centre.name ?? ""}
+						subtitle={[day?.division?.name, day?.estate?.name].filter(Boolean).join(" · ")}
+						onPress={manyCentres ? () => router.push("/choose-centre") : undefined}
+						chevron={manyCentres}
+						divider={false}
+					/>
 				</Card>
 
 				<SectionTitle title={t("more.about")} />
 				<Card padded={false} style={styles.group}>
-					<ListRow icon="refresh-cw" title={t("more.sync")} subtitle={t("common.allSynced")} trailing={<Badge label={t("common.comingSoon")} tone="info" />} disabled />
+					<ListRow icon="refresh-cw" title={t("sync.centre")} subtitle={failed > 0 ? t("sync.failedCount", { count: failed }) : pending > 0 ? t("sync.pending", { count: pending }) : t("sync.synced")} />
 					<ListRow icon="info" title={t("more.version")} trailing={<Text variant="bodyStrong" tone="muted" tabular>{APP_VERSION}</Text>} divider={false} />
 				</Card>
 

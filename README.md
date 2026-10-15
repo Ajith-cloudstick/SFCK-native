@@ -36,7 +36,7 @@ npx expo start --tunnel --clear
 
 If Expo prints "failed to start tunnel" (session closed / remote gone away), ngrok dropped the connection — run the same command again.
 
-Sign in with a field account, for example `cc.cy1` / `Sfck@123` on the dev database. The account's role needs the "can sync mobile device" permission.
+Sign in with a field account, for example `cc.worker.ma.cc.i` / `sfck@123` on the dev database (see `LOGINS.md` at the repo root). The account's role needs the "can sync mobile device" permission.
 
 Everything the user does (attendance, block and muster assignments, collection) is saved to SQLite on the phone first and pushed to `/sync/push` when there is a connection, so the app keeps working offline. Open the account menu (avatar, top right) → Sync centre to see pending or rejected records.
 
@@ -62,24 +62,13 @@ Other available scripts (see `package.json`):
 ```
 npm run android   # expo start --android
 npm run ios        # expo start --ios
-npm run web         # expo start --web
 ```
 
 ## Step 3b — Run in a Browser (Web Preview)
 
-Useful when you don't have a phone/emulator handy — e.g. presenting on your own computer via screen share. This works because the project includes `react-native-web`.
+For presentations only: the real app, inside an Android phone frame in the browser. Run `npx expo start --tunnel --clear`, then press `w` or open **http://localhost:8081**.
 
-```
-npx expo start --web --port 8083
-```
-
-Wait for the terminal to print `Web Bundled ...`, then open **http://localhost:8083** in your browser.
-
-To make it look like a phone screen instead of a wide desktop layout, use your browser's device emulation mode:
-1. Press `F12` to open DevTools
-2. Press `Ctrl+Shift+M` to toggle the device toolbar
-3. Pick a phone preset (e.g. "iPhone 14 Pro" or "Pixel 7") from the dropdown
-4. Refresh the page (`F5`)
+All of the web preview lives in [`web/`](web/README.md), which also explains how to remove it.
 
 ## Step 4 — Git Workflow Before Any Build
 

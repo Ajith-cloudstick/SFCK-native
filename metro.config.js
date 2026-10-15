@@ -31,4 +31,7 @@ config.server = {
 	},
 };
 
+// Web preview for presentations (phone frame in the browser). Remove with the web/ folder
+require("./web/metro").withWebPreview(config);
+
 module.exports = config;

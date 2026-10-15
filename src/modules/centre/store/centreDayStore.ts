@@ -7,12 +7,16 @@ import { useSyncStore } from "@/common/sync/syncStore";
 import type { PushedItem } from "@/common/sync/types";
 import { istDate } from "@/common/utils/ist";
 
-import { getCentreDay, getWorkNatures } from "../services/centreDayService";
+import { getWorkNatures, pullCentreDay } from "../services/centreDayService";
 import type { CentreDay } from "../types/centreDay";
 import { applyItem, applyOutbox } from "../utils/applyOutbox";
 import { buildDayIndex, type DayIndex } from "../utils/dayIndex";
 
 const WORK_NATURES_KEY = "work-natures";
+
+function versionKey(ccId: number, date: string): string {
+	return `version:${ccId}:${date}`;
+}
 
 function dayKey(ccId: number, date: string): string {
 	return `day:${ccId}:${date}`;
@@ -48,10 +52,18 @@ export const useCentreDayStore = create<CentreDayState>((set, get) => ({
 		if (!ccId) return;
 		if (!get().serverDay) set({ loading: true });
 		try {
-			const { data } = await getCentreDay(userId, ccId);
+			const today = istDate();
+			const held = get().serverDay?.date === today ? await readCache<string>(versionKey(ccId, today)).catch(() => null) : null;
+			const { data } = await pullCentreDay(userId, ccId, held?.value);
 			if (get().ccId !== ccId) return;
-			const savedAt = await writeCache(dayKey(ccId, data.date), data).catch(() => new Date().toISOString());
-			set({ serverDay: data, source: "server", savedAt, loading: false, error: null });
+			if (!data.changed || !data.day) {
+				set({ source: "server", savedAt: new Date().toISOString(), loading: false, error: null });
+				return;
+			}
+			const day = data.day;
+			const savedAt = await writeCache(dayKey(ccId, day.date), day).catch(() => new Date().toISOString());
+			await writeCache(versionKey(ccId, day.date), data.version).catch(() => undefined);
+			set({ serverDay: day, source: "server", savedAt, loading: false, error: null });
 		} catch (error) {
 			set({ loading: false, error: userMessage(error) });
 			throw error;
