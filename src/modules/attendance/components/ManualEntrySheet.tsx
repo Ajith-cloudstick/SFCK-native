@@ -12,6 +12,7 @@ import { colors, spacing } from "@/common/theme/tokens";
 import { useDayIndex } from "@/modules/centre/store/centreDayStore";
 import type { Worker } from "@/modules/centre/types/centreDay";
 import { workerCode } from "@/modules/centre/utils/dayIndex";
+import { dutyTypeOf } from "@/modules/centre/utils/duty";
 
 import { useMarkWorker } from "../hooks/useMarkWorker";
 import type { MarkOutcome } from "../types/attendance";
@@ -22,9 +23,10 @@ type ManualEntrySheetProps = {
 	visible: boolean;
 	onClose: () => void;
 	onMarked?: (worker: Worker, outcome: MarkOutcome) => void;
+	onCollect?: (worker: Worker) => void;
 };
 
-export function ManualEntrySheet({ visible, onClose, onMarked }: ManualEntrySheetProps) {
+export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: ManualEntrySheetProps) {
 	const t = useT();
 	const index = useDayIndex();
 	const markWorker = useMarkWorker();
@@ -34,6 +36,11 @@ export function ManualEntrySheet({ visible, onClose, onMarked }: ManualEntryShee
 	const match = index && code.trim().length >= 2 ? findWorkerByCode(index.day.workers, code) : null;
 	const record = match ? index?.attendance.get(match.id) : undefined;
 	const state = record?.status ?? "not_marked";
+	// like a second scan: a present tapper without a collection goes on to the collection entry
+	const tapper = !!match && dutyTypeOf(match) === "tapper";
+	const collected = !!match && !!index?.collections.has(match.id);
+	const canCollect = !!onCollect && tapper && record?.status === "present" && !collected;
+	const note = !match || !record || !tapper ? null : collected ? t("scan.collectionDone", { name: match.name }) : record.status !== "present" ? t("scan.waitingApproval", { name: match.name }) : null;
 
 	const close = () => {
 		setCode("");
@@ -41,6 +48,11 @@ export function ManualEntrySheet({ visible, onClose, onMarked }: ManualEntryShee
 	};
 
 	const confirm = async () => {
+		if (canCollect && match) {
+			setCode("");
+			onCollect?.(match);
+			return;
+		}
 		if (!match || record || busy) return;
 		setBusy(true);
 		const outcome = await markWorker(match);
@@ -55,7 +67,16 @@ export function ManualEntrySheet({ visible, onClose, onMarked }: ManualEntryShee
 			onClose={close}
 			title={t("attendance.enterIdTitle")}
 			subtitle={t("attendance.enterIdHint")}
-			footer={<Button label={t("attendance.markPresent")} onPress={() => void confirm()} disabled={!match || !!record} loading={busy} size="lg" fullWidth />}
+			footer={
+				<Button
+					label={canCollect ? t("collection.add") : t("attendance.markPresent")}
+					onPress={() => void confirm()}
+					disabled={!match || (!!record && !canCollect)}
+					loading={busy}
+					size="lg"
+					fullWidth
+				/>
+			}
 		>
 			<TextField
 				label={t("attendance.workerId")}
@@ -82,6 +103,11 @@ export function ManualEntrySheet({ visible, onClose, onMarked }: ManualEntryShee
 						<Badge label={t(stateBadge[state].label)} tone={stateBadge[state].tone} />
 					</View>
 				</Card>
+			) : null}
+			{note ? (
+				<Text variant="caption" tone="muted">
+					{note}
+				</Text>
 			) : null}
 		</BottomSheet>
 	);

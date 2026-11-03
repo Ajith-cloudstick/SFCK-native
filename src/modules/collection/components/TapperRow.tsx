@@ -24,7 +24,8 @@ function TapperRowBase({ worker, assignment, entry, onOpen }: TapperRowProps) {
 	const block = assignment?.block_no ? t("blocks.blockNo", { no: assignment.block_no }) : t("collection.noBlock");
 
 	return (
-		<Card style={styles.card} onPress={entry ? undefined : () => onOpen(worker)} accessibilityLabel={`${worker.name}, ${block}`}>
+		// Not pressable itself: the Add button is the one target (a button inside a button is invalid on web)
+		<Card style={styles.card}>
 			<View style={styles.top}>
 				<Avatar initials={initialsOf(worker.name)} active={!!entry} />
 				<View style={styles.body}>
@@ -55,7 +56,7 @@ function TapperRowBase({ worker, assignment, entry, onOpen }: TapperRowProps) {
 					<Badge label={t("collection.locked")} tone="neutral" />
 				</View>
 			) : (
-				<Button label={t("collection.add")} icon="plus" onPress={() => onOpen(worker)} fullWidth />
+				<Button label={t("collection.add")} icon="plus" onPress={() => onOpen(worker)} accessibilityLabel={`${t("collection.add")}, ${worker.name}, ${block}`} fullWidth />
 			)}
 		</Card>
 	);

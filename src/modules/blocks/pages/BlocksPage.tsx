@@ -61,6 +61,7 @@ function BlocksList({ index }: { index: DayIndex }) {
 
 	const listProps = {
 		ItemSeparatorComponent: Separator,
+		showsVerticalScrollIndicator: false,
 		style: styles.list,
 		contentContainerStyle: [styles.listContent, { paddingBottom: bottomSpace }],
 		refreshControl: <RefreshControl {...refresh} colors={[colors.brand[700]]} tintColor={colors.brand[700]} />,
@@ -120,7 +121,7 @@ function BlocksList({ index }: { index: DayIndex }) {
 									{showAll ? t("blocks.showDue") : t("blocks.showAll", { count: blocks.length })}
 								</Text>
 							</Pressable>
-						) : null
+						) : undefined
 					}
 				/>
 			) : (

@@ -91,6 +91,7 @@ function TodayContent({ index }: { index: DayIndex }) {
 
 	return (
 		<FlatList
+			showsVerticalScrollIndicator={false}
 			data={summary.pending}
 			keyExtractor={(item) => item.id}
 			renderItem={renderItem}

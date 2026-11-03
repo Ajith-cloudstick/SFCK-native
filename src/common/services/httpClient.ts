@@ -7,7 +7,7 @@ function resolveOrigin(): string {
 	if (configured) return configured;
 	const host = (Constants.expoConfig?.hostUri ?? "").split("/")[0];
 	if (!__DEV__ || !host) return "";
-	const secure = host.includes(".exp.direct") || host.includes("ngrok");
+	const secure = host.includes(".exp.direct") || host.includes(".expo.app") || host.includes("ngrok");
 	return secure ? `https://${host.split(":")[0]}` : `http://${host}`;
 }
 
@@ -47,9 +47,11 @@ type Envelope<T> = {
 	errors?: Record<string, string>;
 };
 
+type RefreshResult = "ok" | "rejected" | "unreachable";
+
 type AuthHooks = {
 	getToken: () => string | null;
-	refresh: () => Promise<boolean>;
+	refresh: () => Promise<RefreshResult>;
 	onExpired: () => void;
 };
 
@@ -61,7 +63,7 @@ type RequestOptions = {
 };
 
 let authHooks: AuthHooks | null = null;
-let refreshing: Promise<boolean> | null = null;
+let refreshing: Promise<RefreshResult> | null = null;
 
 export function configureHttpAuth(hooks: AuthHooks) {
 	authHooks = hooks;
@@ -104,8 +106,8 @@ async function send<T>(path: string, options: RequestOptions): Promise<{ status:
 	}
 }
 
-function refreshOnce(): Promise<boolean> {
-	if (!authHooks) return Promise.resolve(false);
+function refreshOnce(): Promise<RefreshResult> {
+	if (!authHooks) return Promise.resolve("rejected");
 	if (!refreshing) {
 		refreshing = authHooks.refresh().finally(() => {
 			refreshing = null;
@@ -114,11 +116,16 @@ function refreshOnce(): Promise<boolean> {
 	return refreshing;
 }
 
+// After a 401: if another request already renewed the token just retry, otherwise refresh once.
+// When the server cannot be reached the session is kept and the error counts as offline.
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiResult<T>> {
+	const sentToken = options.auth === false ? null : authHooks?.getToken() ?? null;
 	let result = await send<T>(path, options);
 	if (result.status === 401 && options.auth !== false && authHooks) {
-		const renewed = await refreshOnce();
-		if (!renewed) {
+		const latest = authHooks.getToken();
+		const renewed = latest && latest !== sentToken ? "ok" : await refreshOnce();
+		if (renewed === "unreachable") throw new ApiError(t("errors.network"), 0, "network");
+		if (renewed === "rejected") {
 			authHooks.onExpired();
 			throw new ApiError(t("errors.sessionExpired"), 401);
 		}
@@ -143,4 +150,5 @@ export function userMessage(error: unknown): string {
 export const http = {
 	get: <T>(path: string, query?: RequestOptions["query"]) => request<T>(path, { query }),
 	post: <T>(path: string, body: unknown, options: Omit<RequestOptions, "method" | "body"> = {}) => request<T>(path, { ...options, method: "POST", body }),
+	patch: <T>(path: string, body: unknown = {}) => request<T>(path, { method: "PATCH", body }),
 };

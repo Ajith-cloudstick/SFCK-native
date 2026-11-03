@@ -5,6 +5,7 @@ import { colors, iconSize } from "@/common/theme/tokens";
 export type IconName =
 	| "home"
 	| "check-square"
+	| "square"
 	| "grid"
 	| "droplet"
 	| "more-horizontal"
@@ -15,6 +16,7 @@ export type IconName =
 	| "chevron-left"
 	| "chevron-down"
 	| "maximize"
+	| "calendar"
 	| "camera"
 	| "hash"
 	| "user-plus"

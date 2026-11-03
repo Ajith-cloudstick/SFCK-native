@@ -26,9 +26,10 @@ export const useLanguageStore = create<LanguageState>((set) => ({
 	},
 }));
 
+// English only for now (there is no language switch); a Malayalam choice saved by an older build is reset
 export async function hydrateLanguage(): Promise<void> {
-	const stored = await SecureStore.getItemAsync(LANGUAGE_KEY).catch(() => null);
-	if (stored === "en" || stored === "ml") useLanguageStore.setState({ language: stored });
+	useLanguageStore.setState({ language: "en" });
+	await SecureStore.deleteItemAsync(LANGUAGE_KEY).catch(() => undefined);
 }
 
 function translate(language: Language, key: TranslationKey, params?: TranslationParams): string {

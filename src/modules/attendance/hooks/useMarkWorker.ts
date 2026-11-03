@@ -1,10 +1,11 @@
 import { useCallback } from "react";
 
 import { showToast } from "@/common/hooks/useToast";
-import { useT } from "@/common/i18n";
+import { useLanguageStore, useT } from "@/common/i18n";
 import { enqueue } from "@/common/sync/syncEngine";
+import { formatDayDate } from "@/common/utils/format";
 import { istClock } from "@/common/utils/ist";
-import { currentDay } from "@/modules/centre/store/centreDayStore";
+import { currentDay, isPastDay } from "@/modules/centre/store/centreDayStore";
 import type { AttendancePayload, Worker } from "@/modules/centre/types/centreDay";
 import { buildDayIndex } from "@/modules/centre/utils/dayIndex";
 import { classifyArrival, dutyTypeOf, timingFor } from "@/modules/centre/utils/duty";
@@ -16,11 +17,22 @@ const inFlight = new Set<number>();
 // Same flow for tapping a row, scanning a card or typing an ID
 export function useMarkWorker() {
 	const t = useT();
+	const language = useLanguageStore((s) => s.language);
 
 	return useCallback(
 		async (worker: Worker): Promise<MarkOutcome> => {
+			if (isPastDay()) {
+				showToast(t("day.viewOnly"), "warning");
+				return "unavailable";
+			}
 			const day = currentDay();
 			if (!day || inFlight.has(worker.id)) return "unavailable";
+			// sent to another centre: marked there, not here
+			if (worker.working_at) {
+				const until = worker.working_until ? t("workers.until", { date: formatDayDate(worker.working_until, language) }) : t("workers.untilBack");
+				showToast(t("attendance.workingAtToast", { name: worker.name, centre: worker.working_at, until }), "warning");
+				return "unavailable";
+			}
 			const existing = buildDayIndex(day).attendance.get(worker.id);
 			if (existing) {
 				showToast(t("attendance.alreadyMarked", { name: worker.name, time: istClock(existing.check_in) }));
@@ -49,6 +61,6 @@ export function useMarkWorker() {
 			showToast(t("attendance.markedPresent", { name: worker.name }), "success");
 			return "marked";
 		},
-		[t],
+		[language, t],
 	);
 }

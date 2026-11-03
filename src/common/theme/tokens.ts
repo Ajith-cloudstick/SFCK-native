@@ -119,6 +119,7 @@ export const sizes = {
 	scanWindow: 250,
 	scanCorner: 32,
 	statusDot: 8,
+	calendarDay: 40,
 	contentMaxWidth: 520,
 } as const;
 
@@ -153,6 +154,7 @@ export const duration = {
 	toast: 2400,
 	fast: 150,
 	enter: 240,
+	sheet: 260,
 	press: 120,
 	stagger: 40,
 	keyboard: 220,

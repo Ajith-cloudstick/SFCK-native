@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { StyleSheet, TextInput, View, type TextInputInstance, type TextInputProps } from "react-native";
 
 import { borderWidth, colors, fontFamily, fontSize, radius, sizes, spacing } from "@/common/theme/tokens";
 
@@ -11,7 +11,7 @@ type TextFieldProps = Omit<TextInputProps, "style"> & {
 	error?: string | null;
 	icon?: IconName;
 	trailing?: React.ReactNode;
-	ref?: React.Ref<TextInput>;
+	ref?: React.Ref<TextInputInstance>;
 };
 
 export function TextField({ label, error, icon, trailing, ref, onFocus, onBlur, ...rest }: TextFieldProps) {
@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
 	},
 	input: {
 		flex: 1,
+		minWidth: 0,
 		minHeight: sizes.control,
 		fontFamily: fontFamily.regular,
 		fontSize: fontSize.md,

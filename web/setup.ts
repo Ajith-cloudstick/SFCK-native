@@ -11,6 +11,8 @@ html, body { overscroll-behavior: none; }
 * { scrollbar-width: none; -webkit-tap-highlight-color: transparent; user-select: none; }
 *::-webkit-scrollbar { display: none; width: 0; height: 0; }
 input, textarea, [contenteditable="true"] { user-select: text; }
+/* Phones draw no focus ring; the fields keep their own green focus border from TextField/NumberField */
+*:focus, *:focus-visible { outline: none !important; }
 
 .sfck-dialog-scrim {
 	position: fixed; inset: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center;

@@ -24,6 +24,8 @@ function dayKey(ccId: number, date: string): string {
 
 type CentreDayState = {
 	ccId: number | null;
+	// null follows today's IST date; a past date is shown view only
+	selectedDate: string | null;
 	serverDay: CentreDay | null;
 	source: "server" | "cache" | null;
 	savedAt: string | null;
@@ -31,31 +33,47 @@ type CentreDayState = {
 	error: string | null;
 	workNatures: string[];
 	open: (ccId: number) => Promise<void>;
+	selectDate: (date: string | null, userId: number) => Promise<void>;
 	pull: (userId: number) => Promise<void>;
 	bake: (pushed: PushedItem[]) => Promise<void>;
 	loadWorkNatures: (userId: number) => Promise<void>;
 	reset: () => void;
 };
 
-const initial = { ccId: null, serverDay: null, source: null, savedAt: null, loading: false, error: null, workNatures: [] };
+const initial = { ccId: null, selectedDate: null, serverDay: null, source: null, savedAt: null, loading: false, error: null, workNatures: [] };
+
+function viewDate(state: Pick<CentreDayState, "selectedDate">): string {
+	return state.selectedDate ?? istDate();
+}
 
 export const useCentreDayStore = create<CentreDayState>((set, get) => ({
 	...initial,
 	open: async (ccId) => {
 		if (get().ccId !== ccId) set({ ...initial, ccId, loading: true });
-		const cached = await readCache<CentreDay>(dayKey(ccId, istDate())).catch(() => null);
-		if (get().ccId !== ccId || get().source === "server") return;
+		const date = viewDate(get());
+		const cached = await readCache<CentreDay>(dayKey(ccId, date)).catch(() => null);
+		if (get().ccId !== ccId || viewDate(get()) !== date || get().source === "server") return;
 		set({ serverDay: cached?.value ?? null, savedAt: cached?.updatedAt ?? null, source: cached ? "cache" : null, loading: !cached });
+	},
+	selectDate: async (date, userId) => {
+		const next = date === null || date >= istDate() ? null : date;
+		const ccId = get().ccId;
+		if (!ccId || next === get().selectedDate) return;
+		set({ selectedDate: next, serverDay: null, source: null, savedAt: null, error: null, loading: true });
+		await get().open(ccId);
+		await get()
+			.pull(userId)
+			.catch(() => undefined);
 	},
 	pull: async (userId) => {
 		const ccId = get().ccId;
 		if (!ccId) return;
 		if (!get().serverDay) set({ loading: true });
+		const date = viewDate(get());
 		try {
-			const today = istDate();
-			const held = get().serverDay?.date === today ? await readCache<string>(versionKey(ccId, today)).catch(() => null) : null;
-			const { data } = await pullCentreDay(userId, ccId, held?.value);
-			if (get().ccId !== ccId) return;
+			const held = get().serverDay?.date === date ? await readCache<string>(versionKey(ccId, date)).catch(() => null) : null;
+			const { data } = await pullCentreDay(userId, ccId, date, held?.value);
+			if (get().ccId !== ccId || viewDate(get()) !== date) return;
 			if (!data.changed || !data.day) {
 				set({ source: "server", savedAt: new Date().toISOString(), loading: false, error: null });
 				return;
@@ -89,6 +107,17 @@ export const useCentreDayStore = create<CentreDayState>((set, get) => ({
 	},
 	reset: () => set(initial),
 }));
+
+// Past days are view only: the server records marks, assignments and collections against today
+export function isPastDay(): boolean {
+	const selected = useCentreDayStore.getState().selectedDate;
+	return selected !== null && selected < istDate();
+}
+
+export function useIsPastDay(): boolean {
+	const selected = useCentreDayStore((s) => s.selectedDate);
+	return selected !== null && selected < istDate();
+}
 
 // Server day with every pending outbox action applied on top
 export function currentDay(): CentreDay | null {

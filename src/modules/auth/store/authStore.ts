@@ -6,9 +6,12 @@ import { ApiError, configureHttpAuth } from "@/common/services/httpClient";
 
 import { login, logout, refreshSession } from "../services/authService";
 import { clearSessionStorage, clearTokens, getDeviceId, loadSession, saveCentre, saveSession } from "../services/sessionStorage";
-import type { LoginInput, Session, SessionResponse, SessionScope } from "../types/auth";
+import type { LoginInput, RefreshResult, Session, SessionResponse, SessionScope } from "../types/auth";
 
 export const MOBILE_PERMISSION = "can_sync_mobile_device";
+
+// renew a little before the token runs out so the first screen never fails
+const EXPIRY_SKEW_MS = 60000;
 
 type AuthState = {
 	hydrated: boolean;
@@ -18,7 +21,7 @@ type AuthState = {
 	signIn: (input: LoginInput) => Promise<Session>;
 	signOut: () => Promise<void>;
 	expire: () => void;
-	refresh: () => Promise<boolean>;
+	refresh: () => Promise<RefreshResult>;
 	selectCentre: (centreId: number | null) => void;
 };
 
@@ -36,31 +39,49 @@ function trimScope(scope: SessionScope): SessionScope {
 	};
 }
 
-function toSession(data: SessionResponse): Session {
+function toSession(data: SessionResponse, remember: boolean): Session {
 	const { id, username, name, role } = data.user;
 	return {
 		user: { id, username, name, role: { name: role?.name ?? "", access_level: role?.access_level ?? "" } },
 		scope: trimScope(data.scope),
 		permissions: flattenPermissions(data.permissions),
 		estateId: data.estate_id ?? null,
+		remember,
 		token: data.token,
 		expiresAt: data.expires_at,
-		refreshToken: data.refresh_token,
+		refreshToken: remember ? data.refresh_token ?? null : null,
 	};
+}
+
+function expiresSoon(session: Session): boolean {
+	const at = Date.parse(session.expiresAt);
+	return !Number.isFinite(at) || at - EXPIRY_SKEW_MS < Date.now();
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
 	hydrated: false,
 	session: null,
 	centreId: null,
+	// Without "Keep me signed in" a fresh app start asks to sign in again.
+	// With it, an expired token is renewed before the first screen; when offline the stored session is kept.
 	hydrate: async () => {
 		if (get().hydrated) return;
 		const [{ session, centreId }] = await Promise.all([loadSession(), hydrateLanguage()]);
-		set({ session, centreId, hydrated: true });
+		if (session && !session.remember) {
+			await clearTokens();
+			set({ session: null, centreId, hydrated: true });
+			return;
+		}
+		set({ session, centreId });
+		if (session && expiresSoon(session) && (await get().refresh()) === "rejected") {
+			await clearTokens();
+			set({ session: null });
+		}
+		set({ hydrated: true });
 	},
 	signIn: async (input) => {
 		const { data } = await login(input, await getDeviceId());
-		const session = toSession(data);
+		const session = toSession(data, input.remember);
 		await saveSession(session);
 		const keep = get().centreId;
 		const centreId = keep && session.scope.ccs.some((c) => c.id === keep) ? keep : null;
@@ -70,7 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 	},
 	signOut: async () => {
 		const session = get().session;
-		if (session) logout(session.user.id, session.refreshToken).catch(() => undefined);
+		if (session?.refreshToken) logout(session.refreshToken).catch(() => undefined);
 		await clearSessionStorage();
 		set({ session: null, centreId: null });
 	},
@@ -80,18 +101,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 		set({ session: null });
 		showToast(t("errors.sessionExpired"), "danger");
 	},
+	// a network error or server fault keeps the session; only a refused token ends it
 	refresh: async () => {
 		const session = get().session;
-		if (!session) return false;
+		if (!session?.refreshToken) return "rejected";
+		const sent = session.refreshToken;
 		try {
-			const { data } = await refreshSession(session.refreshToken, await getDeviceId());
-			const next = toSession(data);
+			const { data } = await refreshSession(sent, await getDeviceId(), session.estateId);
+			const now = get().session;
+			if (!data.refresh_token || now?.refreshToken !== sent || data.user.id !== session.user.id) return "rejected";
+			const next = toSession({ ...data, estate_id: data.estate_id ?? session.estateId }, true);
 			await saveSession(next);
 			set({ session: next });
-			return true;
+			return "ok";
 		} catch (error) {
-			if (error instanceof ApiError && error.isOffline) throw error;
-			return false;
+			if (error instanceof ApiError && (error.isOffline || error.status >= 500)) return "unreachable";
+			return "rejected";
 		}
 	},
 	selectCentre: (centreId) => {

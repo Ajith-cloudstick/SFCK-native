@@ -1,7 +1,7 @@
 import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, Easing, Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from "react-native";
+import { Animated, Dimensions, Easing, Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/common/components/ui/Button";
@@ -15,7 +15,6 @@ import { shadow } from "@/common/theme/shadows";
 import { FadeIn } from "@/common/components/ui/FadeIn";
 import { colors, duration, motion, radius, sizes, spacing } from "@/common/theme/tokens";
 
-import { LanguageToggle } from "../components/LanguageToggle";
 import { useAuthStore } from "../store/authStore";
 import { landingFor } from "../utils/landing";
 
@@ -29,14 +28,15 @@ export default function LoginPage() {
 	const signedIn = useAuthStore((s) => !!s.session);
 	const signIn = useAuthStore((s) => s.signIn);
 	const selectCentre = useAuthStore((s) => s.selectCentre);
-	const passwordRef = useRef<TextInput>(null);
+	const passwordRef = useRef<TextInputInstance>(null);
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
+	const [remember, setRemember] = useState(true);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [keyboard, setKeyboard] = useState(0);
-	const scrollRef = useRef<ScrollView>(null);
+	const scrollRef = useRef<ScrollViewInstance>(null);
 	const compact = useRef(new Animated.Value(0)).current;
 	const panelFull = Math.max(height * sizes.brandPanel, sizes.brandPanelMin);
 	const panelSmall = insets.top + sizes.brandPanelCompact;
@@ -78,7 +78,7 @@ export default function LoginPage() {
 		setBusy(true);
 		setError(null);
 		try {
-			const session = await signIn({ username: username.trim(), password });
+			const session = await signIn({ username: username.trim(), password, remember });
 			const { href, autoCentre } = landingFor(session, useAuthStore.getState().centreId);
 			if (autoCentre) selectCentre(autoCentre);
 			router.replace(href);
@@ -94,9 +94,6 @@ export default function LoginPage() {
 			<StatusBar style="light" />
 				<ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={[styles.content, { paddingBottom: keyboard }]} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
 					<Animated.View style={[styles.brand, { paddingTop: insets.top + spacing.md, height: panelHeight }]}>
-						<Animated.View style={[styles.brandTop, { opacity: fadeOut, maxHeight: collapse }]}>
-							<LanguageToggle />
-						</Animated.View>
 						<FadeIn style={styles.brandBody}>
 							<Animated.View style={[styles.logoWrap, { width: logoSize, height: logoSize }]}>
 								<Image source={logo} style={styles.logo} resizeMode="contain" accessibilityIgnoresInvertColors />
@@ -162,6 +159,17 @@ export default function LoginPage() {
 								}
 							/>
 
+							<Pressable
+								onPress={() => setRemember((v) => !v)}
+								disabled={busy}
+								style={styles.remember}
+								accessibilityRole="checkbox"
+								accessibilityState={{ checked: remember, disabled: busy }}
+							>
+								<Icon name={remember ? "check-square" : "square"} color={remember ? colors.brand[700] : colors.textMuted} />
+								<Text variant="label">{t("login.remember")}</Text>
+							</Pressable>
+
 							{error ? (
 								<View style={styles.error} accessibilityLiveRegion="polite">
 									<Icon name="alert-circle" size="sm" color={colors.danger.fg} />
@@ -187,7 +195,6 @@ const styles = StyleSheet.create({
 	flex: { flex: 1 },
 	content: { flexGrow: 1 },
 	brand: { backgroundColor: colors.brand[700], paddingHorizontal: spacing.xl, paddingBottom: spacing.lg + radius.xl, overflow: "hidden" },
-	brandTop: { flexDirection: "row", justifyContent: "flex-end", overflow: "hidden" },
 	brandBody: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.xs },
 	logoWrap: {
 		borderRadius: radius.pill,
@@ -198,7 +205,8 @@ const styles = StyleSheet.create({
 		marginBottom: spacing.md,
 		...shadow("md"),
 	},
-	logo: { width: "80%", height: "80%" },
+	// The source image is wide with white margins; oversize it so the artwork fills the circle and the circle clips the blank edges.
+	logo: { width: "130%", height: "130%" },
 	sheet: {
 		flexGrow: 1,
 		marginTop: -radius.xl,
@@ -213,6 +221,7 @@ const styles = StyleSheet.create({
 	form: { gap: spacing.lg, width: "100%", maxWidth: sizes.contentMaxWidth, alignSelf: "center" },
 	heading: { gap: spacing.xs },
 	eye: { width: sizes.touch, height: sizes.touch, alignItems: "center", justifyContent: "center", marginRight: -spacing.md },
+	remember: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: sizes.touch, alignSelf: "flex-start" },
 	error: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.danger.bg },
 	errorText: { flex: 1 },
 });

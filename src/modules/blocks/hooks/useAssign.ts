@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { showToast } from "@/common/hooks/useToast";
 import { useT } from "@/common/i18n";
 import { enqueue } from "@/common/sync/syncEngine";
-import { currentDay } from "@/modules/centre/store/centreDayStore";
+import { currentDay, isPastDay } from "@/modules/centre/store/centreDayStore";
 import type { BlockAssignmentPayload, DayBlock, MusterAssignmentPayload, Worker } from "@/modules/centre/types/centreDay";
 
 export function useAssign() {
@@ -11,6 +11,10 @@ export function useAssign() {
 
 	const assignBlock = useCallback(
 		async (block: DayBlock, worker: Worker): Promise<boolean> => {
+			if (isPastDay()) {
+				showToast(t("day.viewOnly"), "warning");
+				return false;
+			}
 			const day = currentDay();
 			if (!day) return false;
 			const latest = day.blocks.find((b) => b.block_id === block.block_id);
@@ -33,6 +37,10 @@ export function useAssign() {
 
 	const assignMuster = useCallback(
 		async (worker: Worker, workNature: string, location: string): Promise<boolean> => {
+			if (isPastDay()) {
+				showToast(t("day.viewOnly"), "warning");
+				return false;
+			}
 			const day = currentDay();
 			if (!day) return false;
 			const payload: MusterAssignmentPayload = { cc_id: day.centre.id, employee_id: worker.id, date: day.date, work_nature: workNature, location: location.trim() || null };

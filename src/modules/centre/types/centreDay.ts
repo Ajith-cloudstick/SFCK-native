@@ -13,6 +13,40 @@ export type Worker = {
 	designation: string | null;
 	mobile: string | null;
 	posted_here: boolean;
+	// posted here but sent to another centre today: listed, not markable here
+	working_at?: string | null;
+	working_until?: string | null;
+	// sent here from another centre today ("" when they have no home centre)
+	moved_from?: string | null;
+	moved_until?: string | null;
+	move_id?: number | null;
+};
+
+export type WorkerRequestStatus = "waiting" | "sent" | "part_sent" | "declined" | "cancelled";
+
+export type WorkerRequest = {
+	id: number;
+	client_uuid: string | null;
+	cc_id: number;
+	date: string;
+	tappers_needed: number;
+	general_needed: number;
+	note: string | null;
+	status: WorkerRequestStatus;
+	decision_note: string | null;
+	cc_name: string | null;
+	division_name: string | null;
+	// where the workers come from; both empty means the centre's own estate
+	source_estate_id?: number | null;
+	source_head_office?: boolean;
+	source_name?: string | null;
+	estate_name?: string | null;
+	// aimed at the user who loaded the inbox
+	for_me?: boolean;
+	requested_by_name: string | null;
+	decided_by_name: string | null;
+	sent_count: number;
+	created_at: string;
 };
 
 export type AttendanceRecord = {
@@ -82,6 +116,61 @@ export type DutyTiming = {
 	end_time: string;
 };
 
+export type StockItem = {
+	chemical_id: number;
+	name: string;
+	unit: string;
+	kind: "chemical" | "material";
+	received: number;
+	used: number;
+	used_today: number;
+	balance: number;
+};
+
+export type StockUsage = {
+	id: number;
+	client_uuid: string | null;
+	chemical_id: number;
+	quantity: number;
+	note: string | null;
+	chemical_name: string | null;
+	unit: string | null;
+	created_by_name: string | null;
+	created_at: string;
+	reversed_by: number | null;
+};
+
+export type RequisitionStatus = "pending" | "approved" | "rejected" | "issued" | "received";
+
+export type RequisitionLine = {
+	id: number;
+	item_id: number | null;
+	item_name: string;
+	unit: string;
+	qty_requested: number;
+	qty_approved: number | null;
+	qty_received: number | null;
+};
+
+export type Requisition = {
+	id: number;
+	client_uuid: string | null;
+	date: string;
+	status: RequisitionStatus;
+	note: string | null;
+	decision_note: string | null;
+	requested_by_name: string | null;
+	lines: RequisitionLine[];
+	created_at: string;
+};
+
+// Only sent to users who may see chemical stock
+export type CentreStock = {
+	items: StockItem[];
+	usage: StockUsage[];
+	requisitions: Requisition[];
+};
+
 export type CentreDay = {
 	date: string;
 	server_time: string;
@@ -95,6 +184,8 @@ export type CentreDay = {
 	collections: Collection[];
 	duty_timings: DutyTiming[];
 	scrap_drc_percent: number;
+	stock?: CentreStock;
+	worker_requests?: WorkerRequest[];
 };
 
 export type AttendancePayload = {
@@ -126,6 +217,42 @@ export type CollectionPayload = {
 	latex_kg: number;
 	sample_drc: number;
 	scrap_kg: number;
+};
+
+export type ChemicalUsagePayload = {
+	cc_id: number;
+	chemical_id: number;
+	quantity: number;
+	date: string;
+	note: string | null;
+};
+
+export type RequisitionPayload = {
+	cc_id: number;
+	date: string;
+	note: string | null;
+	lines: { item_id: number; qty: number }[];
+};
+
+export type RequisitionReceivePayload = {
+	cc_id: number;
+	requisition_id: number;
+	lines: { id: number; qty: number }[];
+};
+
+export type WorkerRequestPayload = {
+	cc_id: number;
+	date: string;
+	tappers_needed: number;
+	general_needed: number;
+	note: string | null;
+	source?: "own" | "estate" | "head_office";
+	source_estate_id?: number;
+};
+
+export type WorkerRequestCancelPayload = {
+	cc_id: number;
+	request_id: number;
 };
 
 export type Arrival = {

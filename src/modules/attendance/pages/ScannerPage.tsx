@@ -12,8 +12,11 @@ import { Text } from "@/common/components/ui/Text";
 import { showToast } from "@/common/hooks/useToast";
 import { useT } from "@/common/i18n";
 import { borderWidth, colors, duration, opacity, radius, sizes, spacing } from "@/common/theme/tokens";
-import { currentDay, useCentreDayStore } from "@/modules/centre/store/centreDayStore";
+import { currentDay, useCentreDayStore, useDayIndex, useIsPastDay } from "@/modules/centre/store/centreDayStore";
 import type { Worker } from "@/modules/centre/types/centreDay";
+import { buildDayIndex } from "@/modules/centre/utils/dayIndex";
+import { dutyTypeOf } from "@/modules/centre/utils/duty";
+import { CollectionEntrySheet } from "@/modules/collection/components/CollectionEntrySheet";
 
 import { ManualEntrySheet } from "../components/ManualEntrySheet";
 import { useMarkWorker } from "../hooks/useMarkWorker";
@@ -33,12 +36,16 @@ export default function ScannerPage() {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const [permission, requestPermission] = useCameraPermissions();
+	const pastDay = useIsPastDay();
 	const centreName = useCentreDayStore((s) => s.serverDay?.centre.name ?? "");
 	const markWorker = useMarkWorker();
 	const [torch, setTorch] = useState(false);
 	const [marked, setMarked] = useState(0);
 	const [last, setLast] = useState<string | null>(null);
 	const [manualOpen, setManualOpen] = useState(false);
+	const [collectFor, setCollectFor] = useState<Worker | null>(null);
+	const index = useDayIndex();
+	const sheetOpen = manualOpen || collectFor !== null;
 	const recent = useRef(new Map<string, number>());
 	const busy = useRef(false);
 
@@ -50,28 +57,49 @@ export default function ScannerPage() {
 		setLast(worker.name);
 	}, []);
 
+	// First scan of the day marks attendance; scanning a present tapper again opens their collection entry.
+	// The camera reports a card many times a second, so a card only counts again once it has been out of
+	// view for scanDebounce (every sighting refreshes its time), and nothing is read while a sheet is open.
 	const onScanned = useCallback(
 		async ({ data }: BarcodeScanningResult) => {
 			const code = data.trim();
 			const now = Date.now();
 			const seenAt = recent.current.get(code);
-			if (!code || busy.current || (seenAt !== undefined && now - seenAt < duration.scanDebounce)) return;
 			recent.current.set(code, now);
+			if (!code || busy.current || sheetOpen || (seenAt !== undefined && now - seenAt < duration.scanDebounce)) return;
 			busy.current = true;
 			try {
 				const day = currentDay();
 				const worker = day ? findWorkerByCode(day.workers, code) : null;
-				if (!worker) {
+				if (!day || !worker) {
 					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
 					showToast(t("attendance.notInCentreCode", { code }), "danger");
 					return;
 				}
-				record(worker, await markWorker(worker));
+				const dayIndex = buildDayIndex(day);
+				const attendance = dayIndex.attendance.get(worker.id);
+				if (!attendance || dutyTypeOf(worker) !== "tapper") {
+					record(worker, await markWorker(worker));
+					return;
+				}
+				if (attendance.status !== "present") {
+					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+					showToast(t("scan.waitingApproval", { name: worker.name }), "warning");
+					return;
+				}
+				if (dayIndex.collections.has(worker.id)) {
+					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+					showToast(t("scan.collectionDone", { name: worker.name }));
+					return;
+				}
+				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+				setLast(worker.name);
+				setCollectFor(worker);
 			} finally {
 				busy.current = false;
 			}
 		},
-		[markWorker, record, t],
+		[markWorker, record, sheetOpen, t],
 	);
 
 	const askAgain = () => {
@@ -80,6 +108,21 @@ export default function ScannerPage() {
 	};
 
 	const renderCamera = () => {
+		if (pastDay) {
+			return (
+				<View style={styles.centre}>
+					<View style={styles.permissionIcon}>
+						<Icon name="clock" size="xl" color={colors.onBrand} />
+					</View>
+					<Text variant="heading" tone="onBrand" align="center">
+						{t("day.viewOnlyTag")}
+					</Text>
+					<Text variant="body" align="center" style={styles.onCameraMuted}>
+						{t("day.viewOnly")}
+					</Text>
+				</View>
+			);
+		}
 		if (!permission) {
 			return (
 				<View style={styles.centre}>
@@ -183,7 +226,23 @@ export default function ScannerPage() {
 				</View>
 			</View>
 
-			<ManualEntrySheet visible={manualOpen} onClose={() => setManualOpen(false)} onMarked={record} />
+			<ManualEntrySheet
+				visible={manualOpen}
+				onClose={() => setManualOpen(false)}
+				onMarked={record}
+				onCollect={(worker) => {
+					setManualOpen(false);
+					setLast(worker.name);
+					setCollectFor(worker);
+				}}
+			/>
+			<CollectionEntrySheet
+				key={collectFor?.id ?? "none"}
+				worker={collectFor}
+				assignment={collectFor ? index?.blockAssignment.get(collectFor.id) : undefined}
+				scrapDrcPercent={index?.day.scrap_drc_percent ?? 0}
+				onClose={() => setCollectFor(null)}
+			/>
 		</View>
 	);
 }

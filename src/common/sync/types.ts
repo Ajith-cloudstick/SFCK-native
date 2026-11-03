@@ -1,8 +1,11 @@
-export type OutboxType = "attendance" | "assignment" | "collection";
+export type OutboxType = "attendance" | "assignment" | "collection" | "chemical_usage" | "requisition" | "requisition_receive" | "worker_request" | "worker_request_cancel";
 
 export type OutboxStatus = "pending" | "failed";
 
-export type SyncPayload = Record<string, string | number | null>;
+export type SyncValue = string | number | boolean | null | SyncValue[] | { [key: string]: SyncValue };
+
+// Flat for day work; a material request carries its item lines as a list
+export type SyncPayload = { [key: string]: SyncValue };
 
 export type OutboxItem = {
 	clientUuid: string;

@@ -49,7 +49,7 @@ export function NumberField({ label, value, onChangeText, unit, error, decimals 
 					style={styles.input}
 				/>
 				{unit ? (
-					<Text variant="bodyStrong" tone="muted">
+					<Text variant="bodyStrong" tone="muted" style={styles.unit}>
 						{unit}
 					</Text>
 				) : null}
@@ -75,8 +75,10 @@ const styles = StyleSheet.create({
 		borderWidth: borderWidth.thin,
 		backgroundColor: colors.surface,
 	},
+	// minWidth 0 lets the input shrink beside the unit (browsers give inputs an intrinsic width)
 	input: {
 		flex: 1,
+		minWidth: 0,
 		minHeight: sizes.header,
 		fontFamily: fontFamily.semibold,
 		fontSize: fontSize.xl,
@@ -84,4 +86,5 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		paddingVertical: spacing.none,
 	},
+	unit: { flexShrink: 0 },
 });

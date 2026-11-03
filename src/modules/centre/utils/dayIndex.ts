@@ -10,6 +10,9 @@ export type DayIndex = {
 	workerById: Map<number, Worker>;
 	presentTappers: Worker[];
 	presentOthers: Worker[];
+	// workers this centre marks today, and those posted here but working at another centre
+	markable: Worker[];
+	away: Worker[];
 };
 
 export function buildDayIndex(day: CentreDay): DayIndex {
@@ -23,7 +26,9 @@ export function buildDayIndex(day: CentreDay): DayIndex {
 	for (const a of day.assignments) (a.kind === "block" ? blockAssignment : muster).set(a.employee_id, a);
 	const collections = new Map<number, Collection[]>();
 	for (const c of day.collections) collections.set(c.employee_id, [...(collections.get(c.employee_id) ?? []), c]);
-	const present = day.workers.filter((w) => attendance.get(w.id)?.status === "present");
+	const away = day.workers.filter((w) => !!w.working_at);
+	const markable = day.workers.filter((w) => !w.working_at);
+	const present = markable.filter((w) => attendance.get(w.id)?.status === "present");
 	return {
 		day,
 		attendance,
@@ -33,6 +38,8 @@ export function buildDayIndex(day: CentreDay): DayIndex {
 		workerById: new Map(day.workers.map((w) => [w.id, w])),
 		presentTappers: present.filter((w) => dutyTypeOf(w) === "tapper"),
 		presentOthers: present.filter((w) => dutyTypeOf(w) !== "tapper"),
+		markable,
+		away,
 	};
 }
 

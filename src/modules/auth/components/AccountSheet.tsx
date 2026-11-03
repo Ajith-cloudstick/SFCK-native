@@ -8,17 +8,16 @@ import { BottomSheet } from "@/common/components/ui/BottomSheet";
 import { Button } from "@/common/components/ui/Button";
 import { Card } from "@/common/components/ui/Card";
 import { ListRow } from "@/common/components/ui/ListRow";
-import { SegmentedControl } from "@/common/components/ui/SegmentedControl";
 import { Text } from "@/common/components/ui/Text";
 import { APP_VERSION } from "@/common/config/appConfig";
-import { useLanguageStore, useT, type Language } from "@/common/i18n";
+import { useT } from "@/common/i18n";
 import { useSyncSummary } from "@/common/sync/syncStore";
 import { spacing } from "@/common/theme/tokens";
 import { initialsOf } from "@/common/utils/format";
 import { SyncCentre } from "@/modules/centre/components/SyncCentre";
 
 import { useSignOut } from "../hooks/useSignOut";
-import { useAuthStore } from "../store/authStore";
+import { hasPermission, useAuthStore } from "../store/authStore";
 
 export type AccountView = "account" | "sync";
 
@@ -29,26 +28,26 @@ type AccountSheetProps = {
 	onClose: () => void;
 };
 
-const languageOptions: { value: Language; label: string }[] = [
-	{ value: "en", label: "English" },
-	{ value: "ml", label: "മലയാളം" },
-];
-
 export function AccountSheet({ visible, view, onChangeView, onClose }: AccountSheetProps) {
 	const t = useT();
 	const router = useRouter();
 	const session = useAuthStore((s) => s.session);
 	const centreId = useAuthStore((s) => s.centreId);
-	const language = useLanguageStore((s) => s.language);
-	const setLanguage = useLanguageStore((s) => s.setLanguage);
 	const { pending, failed } = useSyncSummary();
 	const signOut = useSignOut();
 	const centre = session?.scope.ccs.find((c) => c.id === centreId);
 	const canSwitch = (session?.scope.ccs.length ?? 0) > 1;
+	const canSeeStock = hasPermission(session, "can_view_chemical");
+	const canSendWorkers = hasPermission(session, "can_send_worker");
 
 	const changeCentre = () => {
 		onClose();
 		router.push("/choose-centre");
+	};
+
+	const open = (path: "/stock" | "/worker-requests") => {
+		onClose();
+		router.push(path);
 	};
 
 	const handleSignOut = () => {
@@ -84,12 +83,11 @@ export function AccountSheet({ visible, view, onChangeView, onClose }: AccountSh
 			</View>
 
 			<Card padded={false} style={styles.group}>
-				<ListRow icon="map-pin" title={centre?.name ?? ""} subtitle={t("account.workingAt")} divider={canSwitch} />
-				{canSwitch ? <ListRow icon="repeat" title={t("account.changeCentre")} onPress={changeCentre} chevron divider={false} /> : null}
+				<ListRow icon="map-pin" title={centre?.name ?? ""} subtitle={t("account.workingAt")} divider={canSwitch || canSeeStock || canSendWorkers} />
+				{canSwitch ? <ListRow icon="repeat" title={t("account.changeCentre")} onPress={changeCentre} chevron divider={canSeeStock || canSendWorkers} /> : null}
+				{canSeeStock ? <ListRow icon="droplet" title={t("account.stock")} onPress={() => open("/stock")} chevron divider={canSendWorkers} /> : null}
+				{canSendWorkers ? <ListRow icon="users" title={t("account.workerRequests")} onPress={() => open("/worker-requests")} chevron divider={false} /> : null}
 			</Card>
-
-			<SectionTitle title={t("account.language")} />
-			<SegmentedControl options={languageOptions} value={language} onChange={setLanguage} />
 
 			<SectionTitle title={t("account.about")} />
 			<Card padded={false} style={styles.group}>

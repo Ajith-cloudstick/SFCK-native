@@ -6,6 +6,7 @@ import { useT } from "@/common/i18n";
 import { useSyncStore, useSyncSummary } from "@/common/sync/syncStore";
 import type { SyncState } from "@/common/sync/types";
 import { colors, opacity, radius, sizes, spacing } from "@/common/theme/tokens";
+import { istClock } from "@/common/utils/ist";
 
 type SyncPillProps = {
 	onPress: () => void;
@@ -22,8 +23,9 @@ export function SyncPill({ onPress }: SyncPillProps) {
 	const t = useT();
 	const { pending, state } = useSyncSummary();
 	const syncing = useSyncStore((s) => s.syncing);
-	const label =
-		state === "offline" ? t("sync.offline") : state === "error" ? t("sync.error") : state === "pending" ? t("sync.pending", { count: pending }) : t("sync.synced");
+	const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt);
+	const synced = lastSyncedAt ? t("sync.syncedAt", { time: istClock(lastSyncedAt) }) : t("sync.synced");
+	const label = state === "offline" ? t("sync.offline") : state === "error" ? t("sync.error") : state === "pending" ? t("sync.pending", { count: pending }) : synced;
 	const p = look[state];
 
 	return (

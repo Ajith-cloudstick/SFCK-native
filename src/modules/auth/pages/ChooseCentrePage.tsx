@@ -57,7 +57,7 @@ export default function ChooseCentrePage() {
 				/>
 			}
 		>
-			<ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
+			<ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]} showsVerticalScrollIndicator={false}>
 				{groups.length === 0 ? (
 					<EmptyState icon="map-pin" title={t("centre.noneTitle")} body={t("centre.noneBody")} />
 				) : (

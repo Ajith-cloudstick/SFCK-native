@@ -5,11 +5,13 @@ import { Screen } from "@/common/components/layout/Screen";
 import { SectionTitle } from "@/common/components/layout/SectionTitle";
 import { useTabBarSpace } from "@/common/components/layout/TabBar";
 import { EmptyState } from "@/common/components/ui/EmptyState";
+import { showToast } from "@/common/hooks/useToast";
 import { useT } from "@/common/i18n";
 import { colors, spacing } from "@/common/theme/tokens";
 import { CentreHeader } from "@/modules/centre/components/CentreHeader";
 import { DayGate } from "@/modules/centre/components/DayGate";
 import { useSyncRefresh } from "@/modules/centre/hooks/useCentreSync";
+import { isPastDay } from "@/modules/centre/store/centreDayStore";
 import type { Worker } from "@/modules/centre/types/centreDay";
 import type { DayIndex } from "@/modules/centre/utils/dayIndex";
 
@@ -49,14 +51,24 @@ function CollectionList({ index }: { index: DayIndex }) {
 		[index],
 	);
 
+	// Past days are view only, so no entry sheet opens there
+	const openEntry = useCallback(
+		(worker: Worker) => {
+			if (isPastDay()) showToast(t("day.viewOnly"), "warning");
+			else setTarget(worker);
+		},
+		[t],
+	);
+
 	const renderItem = useCallback(
-		({ item }: { item: Worker }) => <TapperRow worker={item} assignment={index.blockAssignment.get(item.id)} entry={entryFor(item)} onOpen={setTarget} />,
-		[index, entryFor],
+		({ item }: { item: Worker }) => <TapperRow worker={item} assignment={index.blockAssignment.get(item.id)} entry={entryFor(item)} onOpen={openEntry} />,
+		[index, entryFor, openEntry],
 	);
 
 	return (
 		<>
 			<FlatList
+				showsVerticalScrollIndicator={false}
 				data={tappers}
 				keyExtractor={(w) => String(w.id)}
 				renderItem={renderItem}

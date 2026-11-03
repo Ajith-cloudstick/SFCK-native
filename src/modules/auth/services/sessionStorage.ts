@@ -24,7 +24,8 @@ export async function loadSession(): Promise<{ session: Session | null; centreId
 		readJson<SessionProfile>(PROFILE_KEY),
 		SecureStore.getItemAsync(CENTRE_KEY).catch(() => null),
 	]);
-	const session = tokens && profile ? { ...profile, ...tokens } : null;
+	// sessions saved before "Keep me signed in" existed had a refresh token, so they count as remembered
+	const session = tokens && profile ? { ...profile, remember: profile.remember ?? true, ...tokens, refreshToken: tokens.refreshToken ?? null } : null;
 	const centreId = centre ? Number(centre) : null;
 	return { session, centreId: centreId && Number.isFinite(centreId) ? centreId : null };
 }

@@ -40,14 +40,15 @@ export type SessionResponse = {
 	permissions: Record<string, Record<string, boolean>>;
 	token: string;
 	expires_at: string;
-	refresh_token: string;
+	refresh_token?: string | null;
 	estate_id: number | null;
 };
 
+// refreshToken is only kept for "Keep me signed in"
 export type SessionTokens = {
 	token: string;
 	expiresAt: string;
-	refreshToken: string;
+	refreshToken: string | null;
 };
 
 export type SessionProfile = {
@@ -55,6 +56,7 @@ export type SessionProfile = {
 	scope: SessionScope;
 	permissions: string[];
 	estateId: number | null;
+	remember: boolean;
 };
 
 export type Session = SessionProfile & SessionTokens;
@@ -62,4 +64,7 @@ export type Session = SessionProfile & SessionTokens;
 export type LoginInput = {
 	username: string;
 	password: string;
+	remember: boolean;
 };
+
+export type RefreshResult = "ok" | "rejected" | "unreachable";

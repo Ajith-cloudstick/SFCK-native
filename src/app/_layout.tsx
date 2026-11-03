@@ -20,6 +20,8 @@ export default function RootLayout() {
 				<Stack.Screen name="choose-centre" />
 				<Stack.Screen name="no-access" />
 				<Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+				<Stack.Screen name="stock" />
+				<Stack.Screen name="worker-requests" />
 				<Stack.Screen name="scan" options={{ animation: "slide_from_bottom", contentStyle: { backgroundColor: colors.camera } }} />
 			</Stack>
 		</AppProviders>

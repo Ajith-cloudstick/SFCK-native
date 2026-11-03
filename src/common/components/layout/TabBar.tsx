@@ -62,7 +62,7 @@ function Tab({ icon, label, focused, onPress }: TabProps) {
 	);
 }
 
-export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
+export function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
 	const t = useT();
 	const router = useRouter();
 	const scanPress = usePressScale();
@@ -73,8 +73,8 @@ export function TabBar({ state, navigation, insets }: BottomTabBarProps) {
 		if (!meta) return null;
 		const focused = state.routes[state.index]?.key === route.key;
 		const onPress = () => {
-			const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-			if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+			const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+			if (!focused && !event.defaultPrevented) navigateToTab(route.key);
 		};
 		return <Tab key={route.key} icon={meta.icon} label={t(meta.label)} focused={focused} onPress={onPress} />;
 	};

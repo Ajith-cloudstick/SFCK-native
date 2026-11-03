@@ -5,26 +5,18 @@ import { Screen } from "@/common/components/layout/Screen";
 import { SectionTitle } from "@/common/components/layout/SectionTitle";
 import { Card } from "@/common/components/ui/Card";
 import { ListRow } from "@/common/components/ui/ListRow";
-import { SegmentedControl } from "@/common/components/ui/SegmentedControl";
 import { Text } from "@/common/components/ui/Text";
 import { APP_VERSION } from "@/common/config/appConfig";
-import { useLanguageStore, useT, type Language } from "@/common/i18n";
+import { useT } from "@/common/i18n";
 import { useSyncSummary } from "@/common/sync/syncStore";
 import { spacing } from "@/common/theme/tokens";
 import { useAuthStore } from "@/modules/auth/store/authStore";
 import { CentreHeader } from "@/modules/centre/components/CentreHeader";
 import { useCentreDayStore } from "@/modules/centre/store/centreDayStore";
 
-const languageOptions: { value: Language; label: string }[] = [
-	{ value: "en", label: "English" },
-	{ value: "ml", label: "മലയാളം" },
-];
-
 export default function MorePage() {
 	const t = useT();
 	const router = useRouter();
-	const language = useLanguageStore((s) => s.language);
-	const setLanguage = useLanguageStore((s) => s.setLanguage);
 	const session = useAuthStore((s) => s.session);
 	const day = useCentreDayStore((s) => s.serverDay);
 	const { pending, failed } = useSyncSummary();
@@ -32,10 +24,7 @@ export default function MorePage() {
 
 	return (
 		<Screen header={<CentreHeader />}>
-			<ScrollView contentContainerStyle={styles.content}>
-				<SectionTitle title={t("more.language")} />
-				<SegmentedControl options={languageOptions} value={language} onChange={setLanguage} />
-
+			<ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 				<SectionTitle title={t("more.context")} />
 				<Card padded={false} style={styles.group}>
 					<ListRow icon="user" title={session?.user.name ?? ""} subtitle={session?.user.role.name ?? ""} />
