@@ -2,11 +2,15 @@ import Constants from "expo-constants";
 import { t } from "@/common/i18n";
 import { duration } from "@/common/theme/tokens";
 
+// release builds talk to the live server; while developing, the app reaches the API on this PC through the Expo dev server
+const PRODUCTION_ORIGIN = "https://sfck.susmitha.site";
+
 function resolveOrigin(): string {
 	const configured = (process.env.EXPO_PUBLIC_API_URL ?? "").trim().replace(/\/+$/, "");
 	if (configured) return configured;
+	if (!__DEV__) return PRODUCTION_ORIGIN;
 	const host = (Constants.expoConfig?.hostUri ?? "").split("/")[0];
-	if (!__DEV__ || !host) return "";
+	if (!host) return "";
 	const secure = host.includes(".exp.direct") || host.includes(".expo.app") || host.includes("ngrok");
 	return secure ? `https://${host.split(":")[0]}` : `http://${host}`;
 }

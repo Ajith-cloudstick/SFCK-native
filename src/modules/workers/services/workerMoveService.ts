@@ -17,6 +17,11 @@ export function sendWorkers(userId: number, input: SendWorkersInput) {
 	return http.post<WorkerMove[]>(`/users/${userId}/worker-move`, input);
 }
 
+// marks a worker present at a centre now, used after bringing them for today
+export function markPresent(userId: number, employeeId: number, ccId: number) {
+	return http.post<unknown>(`/users/${userId}/attendance`, { employee_id: employeeId, cc_id: ccId });
+}
+
 export function bringBack(userId: number, moveId: number) {
 	return http.patch<WorkerMove>(`/users/${userId}/worker-move/${moveId}/end`);
 }

@@ -16,7 +16,7 @@ import { borderWidth, colors, opacity, radius, sizes, spacing } from "@/common/t
 import { useAuthStore } from "@/modules/auth/store/authStore";
 import type { Worker, WorkerRequest } from "@/modules/centre/types/centreDay";
 
-import { bringBack, getCandidates, sendWorkers } from "../services/workerMoveService";
+import { bringBack, getCandidates, markPresent, sendWorkers } from "../services/workerMoveService";
 import type { MoveCandidate, SendPeriod, WorkerSource } from "../types/workers";
 import { periodEnd, periodOptions } from "../utils/workerFormat";
 import { SourceChips } from "./SourceChips";
@@ -34,11 +34,13 @@ type SendWorkersSheetProps = {
 	request?: WorkerRequest | null;
 	// workers sent to this centre or away from it, offered for Bring back
 	sentHere?: Worker[];
+	// a worker of the same estate for today only, marked present here (for those who mark attendance but do not send workers)
+	todayOnly?: boolean;
 	onClose: () => void;
 	onSent?: () => void;
 };
 
-export function SendWorkersSheet({ visible, ccId, ccName, estateId = null, date, request, sentHere = [], onClose, onSent }: SendWorkersSheetProps) {
+export function SendWorkersSheet({ visible, ccId, ccName, estateId = null, date, request, sentHere = [], todayOnly = false, onClose, onSent }: SendWorkersSheetProps) {
 	const t = useT();
 	const userId = useAuthStore((s) => s.session?.user.id ?? null);
 	const [query, setQuery] = useState("");
@@ -94,8 +96,16 @@ export function SendWorkersSheet({ visible, ccId, ccName, estateId = null, date,
 		if (!userId || selected.size === 0 || busy) return;
 		setBusy(true);
 		try {
-			await sendWorkers(userId, { cc_id: ccId, employee_ids: [...selected], from_date: date, to_date: periodEnd(date, period), request_id: request?.id || undefined });
-			showToast(t("workers.sent", { count: selected.size, centre: ccName }), "success");
+			const ids = [...selected];
+			await sendWorkers(userId, { cc_id: ccId, employee_ids: ids, from_date: date, to_date: todayOnly ? date : periodEnd(date, period), request_id: request?.id || undefined });
+			if (todayOnly) {
+				for (const id of ids) {
+					await markPresent(userId, id, ccId).catch((e: unknown) => showToast(userMessage(e), "danger"));
+				}
+				showToast(t("workers.broughtToday", { count: ids.length, centre: ccName }), "success");
+			} else {
+				showToast(t("workers.sent", { count: ids.length, centre: ccName }), "success");
+			}
 			void syncNow();
 			onSent?.();
 			close();
@@ -134,11 +144,11 @@ export function SendWorkersSheet({ visible, ccId, ccName, estateId = null, date,
 		<BottomSheet
 			visible={visible}
 			onClose={close}
-			title={request ? t("workers.sendTitle", { centre: ccName }) : t("workers.bringTitle")}
+			title={request ? t("workers.sendTitle", { centre: ccName }) : todayOnly ? t("workers.bringToday") : t("workers.bringTitle")}
 			subtitle={request ? t("workers.requestLine", { tappers: request.tappers_needed, general: request.general_needed }) : ccName}
 			footer={
 				<Button
-					label={t("workers.sendCount", { count: selected.size })}
+					label={todayOnly ? t("workers.markPresentHere") : t("workers.sendCount", { count: selected.size })}
 					icon="user-plus"
 					onPress={() => void send()}
 					disabled={selected.size === 0}
@@ -173,7 +183,7 @@ export function SendWorkersSheet({ visible, ccId, ccName, estateId = null, date,
 				</View>
 			) : null}
 
-			{request ? null : (
+			{request || todayOnly ? null : (
 				<SourceChips
 					value={from}
 					onChange={(next) => {
@@ -184,14 +194,18 @@ export function SendWorkersSheet({ visible, ccId, ccName, estateId = null, date,
 				/>
 			)}
 
-			<Text variant="label" tone="muted">
-				{t("workers.period")}
-			</Text>
-			<View style={styles.chips}>
-				{periodOptions.map((o) => (
-					<Chip key={o.value} label={t(o.label)} selected={period === o.value} onPress={() => setPeriod(o.value)} />
-				))}
-			</View>
+			{todayOnly ? null : (
+				<>
+					<Text variant="label" tone="muted">
+						{t("workers.period")}
+					</Text>
+					<View style={styles.chips}>
+						{periodOptions.map((o) => (
+							<Chip key={o.value} label={t(o.label)} selected={period === o.value} onPress={() => setPeriod(o.value)} />
+						))}
+					</View>
+				</>
+			)}
 
 			<TextField icon="search" value={query} onChangeText={setQuery} placeholder={t("workers.search")} autoCorrect={false} returnKeyType="search" />
 

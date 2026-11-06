@@ -1,7 +1,7 @@
 import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, Easing, Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
+import { Animated, Dimensions, Easing, Image, Keyboard, Platform, Pressable, StyleSheet, useWindowDimensions, View, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/common/components/ui/Button";
@@ -35,32 +35,32 @@ export default function LoginPage() {
 	const [remember, setRemember] = useState(true);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [keyboard, setKeyboard] = useState(0);
-	const scrollRef = useRef<ScrollViewInstance>(null);
+	const formBottom = useRef(0);
 	const compact = useRef(new Animated.Value(0)).current;
+	const lift = useRef(new Animated.Value(0)).current;
 	const panelFull = Math.max(height * sizes.brandPanel, sizes.brandPanelMin);
 	const panelSmall = insets.top + sizes.brandPanelCompact;
 
 	useEffect(() => {
 		const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
 		const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-		const animate = (to: number, ms?: number) =>
-			Animated.timing(compact, { toValue: to, duration: ms ?? duration.keyboard, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+		const animate = (to: number, shift: number, ms?: number) => {
+			const timing = { duration: ms ?? duration.keyboard, easing: Easing.out(Easing.cubic), useNativeDriver: false };
+			Animated.parallel([Animated.timing(compact, { toValue: to, ...timing }), Animated.timing(lift, { toValue: -shift, ...timing })]).start();
+		};
+		// No scrolling: the header compacts and the screen rises only as far as needed to keep the sign-in button above the keyboard
 		const show = Keyboard.addListener(showEvent, (e) => {
-			const overlap = Math.max(0, Dimensions.get("window").height - e.endCoordinates.screenY);
-			setKeyboard(overlap || e.endCoordinates.height);
-			animate(1, e.duration || undefined);
-			setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), duration.keyboard);
+			const windowHeight = Dimensions.get("window").height;
+			const overlap = Math.max(0, windowHeight - e.endCoordinates.screenY) || e.endCoordinates.height;
+			const bottom = panelSmall - radius.xl + formBottom.current + spacing.lg;
+			animate(1, Math.max(0, bottom - (windowHeight - overlap)), e.duration || undefined);
 		});
-		const hide = Keyboard.addListener(hideEvent, (e) => {
-			setKeyboard(0);
-			animate(0, e?.duration || undefined);
-		});
+		const hide = Keyboard.addListener(hideEvent, (e) => animate(0, 0, e?.duration || undefined));
 		return () => {
 			show.remove();
 			hide.remove();
 		};
-	}, [compact]);
+	}, [compact, lift, panelSmall]);
 
 	const panelHeight = compact.interpolate({ inputRange: [0, 1], outputRange: [panelFull, panelSmall] });
 	const logoSize = compact.interpolate({ inputRange: [0, 1], outputRange: [sizes.logo, sizes.logo * motion.logoCompact] });
@@ -92,7 +92,7 @@ export default function LoginPage() {
 	return (
 		<View style={styles.screen}>
 			<StatusBar style="light" />
-				<ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={[styles.content, { paddingBottom: keyboard }]} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
+				<Animated.View style={[styles.flex, { transform: [{ translateY: lift }] }]}>
 					<Animated.View style={[styles.brand, { paddingTop: insets.top + spacing.md, height: panelHeight }]}>
 						<FadeIn style={styles.brandBody}>
 							<Animated.View style={[styles.logoWrap, { width: logoSize, height: logoSize }]}>
@@ -110,6 +110,7 @@ export default function LoginPage() {
 					</Animated.View>
 
 					<View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
+						<View onLayout={(e) => (formBottom.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
 						<FadeIn delay={duration.stagger * 3} style={styles.form}>
 							<View style={styles.heading}>
 								<Text variant="title">{t("login.title")}</Text>
@@ -181,11 +182,12 @@ export default function LoginPage() {
 
 							<Button label={t("login.submit")} onPress={submit} loading={busy} size="lg" fullWidth />
 						</FadeIn>
+						</View>
 						<Text variant="caption" tone="subtle" align="center">
 							{t("login.version", { version: APP_VERSION })}
 						</Text>
 					</View>
-				</ScrollView>
+				</Animated.View>
 		</View>
 	);
 }
@@ -193,7 +195,6 @@ export default function LoginPage() {
 const styles = StyleSheet.create({
 	screen: { flex: 1, backgroundColor: colors.brand[700] },
 	flex: { flex: 1 },
-	content: { flexGrow: 1 },
 	brand: { backgroundColor: colors.brand[700], paddingHorizontal: spacing.xl, paddingBottom: spacing.lg + radius.xl, overflow: "hidden" },
 	brandBody: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.xs },
 	logoWrap: {

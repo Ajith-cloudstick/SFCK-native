@@ -61,7 +61,9 @@ function AttendanceList({ index }: { index: DayIndex }) {
 	const [asking, setAsking] = useState(false);
 	const [bringing, setBringing] = useState(false);
 	const canAsk = hasPermission(session, "can_request_worker") && !pastDay;
-	const canSend = hasPermission(session, "can_send_worker") && !pastDay;
+	// senders bring workers from anywhere for any period; others who mark attendance bring one of their estate for today
+	const canSendFull = hasPermission(session, "can_send_worker");
+	const canSend = (canSendFull || hasPermission(session, "can_change_attendance")) && !pastDay;
 	const requests = (index.day.worker_requests ?? []).filter((r) => r.status !== "cancelled");
 	// workers sent here, and this centre's workers sent away, can be brought back
 	const sentHere = index.day.workers.filter((w) => (w.moved_from != null || w.working_at != null) && !!w.move_id);
@@ -175,7 +177,8 @@ function AttendanceList({ index }: { index: DayIndex }) {
 				ccName={index.day.centre.name}
 				estateId={index.day.centre.estate_id}
 				date={index.day.date}
-				sentHere={sentHere}
+				sentHere={canSendFull ? sentHere : []}
+				todayOnly={!canSendFull}
 				onClose={() => setBringing(false)}
 			/>
 			<CollectionEntrySheet

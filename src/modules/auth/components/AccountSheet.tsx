@@ -39,13 +39,14 @@ export function AccountSheet({ visible, view, onChangeView, onClose }: AccountSh
 	const canSwitch = (session?.scope.ccs.length ?? 0) > 1;
 	const canSeeStock = hasPermission(session, "can_view_chemical");
 	const canSendWorkers = hasPermission(session, "can_send_worker");
+	const canSeeWages = hasPermission(session, "can_view_payroll");
 
 	const changeCentre = () => {
 		onClose();
 		router.push("/choose-centre");
 	};
 
-	const open = (path: "/stock" | "/worker-requests") => {
+	const open = (path: "/stock" | "/worker-requests" | "/wages") => {
 		onClose();
 		router.push(path);
 	};
@@ -83,10 +84,11 @@ export function AccountSheet({ visible, view, onChangeView, onClose }: AccountSh
 			</View>
 
 			<Card padded={false} style={styles.group}>
-				<ListRow icon="map-pin" title={centre?.name ?? ""} subtitle={t("account.workingAt")} divider={canSwitch || canSeeStock || canSendWorkers} />
-				{canSwitch ? <ListRow icon="repeat" title={t("account.changeCentre")} onPress={changeCentre} chevron divider={canSeeStock || canSendWorkers} /> : null}
-				{canSeeStock ? <ListRow icon="droplet" title={t("account.stock")} onPress={() => open("/stock")} chevron divider={canSendWorkers} /> : null}
-				{canSendWorkers ? <ListRow icon="users" title={t("account.workerRequests")} onPress={() => open("/worker-requests")} chevron divider={false} /> : null}
+				<ListRow icon="map-pin" title={centre?.name ?? ""} subtitle={t("account.workingAt")} divider={canSwitch || canSeeStock || canSendWorkers || canSeeWages} />
+				{canSwitch ? <ListRow icon="repeat" title={t("account.changeCentre")} onPress={changeCentre} chevron divider={canSeeStock || canSendWorkers || canSeeWages} /> : null}
+				{canSeeStock ? <ListRow icon="droplet" title={t("account.stock")} onPress={() => open("/stock")} chevron divider={canSendWorkers || canSeeWages} /> : null}
+				{canSendWorkers ? <ListRow icon="users" title={t("account.workerRequests")} onPress={() => open("/worker-requests")} chevron divider={canSeeWages} /> : null}
+				{canSeeWages ? <ListRow icon="credit-card" title={t("account.wages")} onPress={() => open("/wages")} chevron divider={false} /> : null}
 			</Card>
 
 			<SectionTitle title={t("account.about")} />

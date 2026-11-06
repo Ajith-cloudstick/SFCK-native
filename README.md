@@ -32,7 +32,7 @@ Nothing to set while developing. Start the API (`go run .` in `sfck-erp/backend`
 npx expo start --tunnel --clear
 ```
 
-`metro.config.js` forwards every `/api/v1/*` request from the phone to the API on this computer, so the API works through the same Expo tunnel (or over Wi-Fi without `--tunnel`). Leave `EXPO_PUBLIC_API_URL` empty in `.env`; set it only for release builds that talk to a real server. If the API runs on another port, start Metro with `SFCK_API_TARGET=http://127.0.0.1:<port>`.
+`metro.config.js` forwards every `/api/v1/*` request from the phone to the API on this computer, so the API works through the same Expo tunnel (or over Wi-Fi without `--tunnel`). Leave `EXPO_PUBLIC_API_URL` empty in `.env`: release builds use the live server `https://sfck.susmitha.site/api/v1` (set in `src/common/services/httpClient.ts`). Set the variable only to point a build at another server. If the API runs on another port, start Metro with `SFCK_API_TARGET=http://127.0.0.1:<port>`.
 
 If Expo prints "failed to start tunnel" (session closed / remote gone away), ngrok dropped the connection — run the same command again.
 
