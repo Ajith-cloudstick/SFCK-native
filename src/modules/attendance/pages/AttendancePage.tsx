@@ -28,7 +28,7 @@ import { useWorkerRequest } from "@/modules/workers/hooks/useWorkerRequest";
 
 import { ManualEntrySheet } from "../components/ManualEntrySheet";
 import { WorkerRow } from "../components/WorkerRow";
-import { useMarkWorker } from "../hooks/useMarkWorker";
+import { useMarkWorker, useRequestDoubleDuty } from "../hooks/useMarkWorker";
 import type { AttendanceFilter } from "../types/attendance";
 
 function matches(index: DayIndex, worker: Worker, filter: AttendanceFilter): boolean {
@@ -49,6 +49,7 @@ export default function AttendancePage() {
 function AttendanceList({ index }: { index: DayIndex }) {
 	const t = useT();
 	const markWorker = useMarkWorker();
+	const requestDoubleDuty = useRequestDoubleDuty();
 	const bottomSpace = useTabBarSpace();
 	const refresh = useSyncRefresh();
 	const [query, setQuery] = useState("");
@@ -92,8 +93,22 @@ function AttendanceList({ index }: { index: DayIndex }) {
 		setFilter(next);
 	};
 
-	const onPress = useCallback((worker: Worker) => void markWorker(worker), [markWorker]);
-	const renderItem = useCallback(({ item }: { item: Worker }) => <WorkerRow worker={item} record={index.attendance.get(item.id)} onPress={onPress} />, [index, onPress]);
+	// same rule as the web: today only, present for the normal shift, no double duty yet
+	const canDoubleDuty = hasPermission(session, "can_change_attendance") && !pastDay;
+	const onPress = useCallback(
+		(worker: Worker) => {
+			if (canDoubleDuty && !worker.working_at && index.attendance.get(worker.id)?.status === "present" && !index.doubleDuty.has(worker.id)) {
+				requestDoubleDuty(worker);
+				return;
+			}
+			void markWorker(worker);
+		},
+		[canDoubleDuty, index, markWorker, requestDoubleDuty],
+	);
+	const renderItem = useCallback(
+		({ item }: { item: Worker }) => <WorkerRow worker={item} record={index.attendance.get(item.id)} doubleDuty={index.doubleDuty.get(item.id)} onPress={onPress} />,
+		[index, onPress],
+	);
 
 	return (
 		<FadeIn style={styles.flex}>

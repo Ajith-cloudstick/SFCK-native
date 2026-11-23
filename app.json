@@ -4,7 +4,7 @@
     "slug": "sfck",
     "version": "1.0.0",
     "scheme": "sfck",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
@@ -45,7 +45,8 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "router": {},

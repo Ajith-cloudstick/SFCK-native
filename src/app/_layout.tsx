@@ -23,6 +23,7 @@ export default function RootLayout() {
 				<Stack.Screen name="stock" />
 				<Stack.Screen name="worker-requests" />
 				<Stack.Screen name="wages" />
+				<Stack.Screen name="reports" />
 				<Stack.Screen name="scan" options={{ animation: "slide_from_bottom", contentStyle: { backgroundColor: colors.camera } }} />
 			</Stack>
 		</AppProviders>

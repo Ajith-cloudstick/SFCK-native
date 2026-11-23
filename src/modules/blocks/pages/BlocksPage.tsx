@@ -50,6 +50,13 @@ function BlocksList({ index }: { index: DayIndex }) {
 		return [...list].sort((a, b) => Number(b.due) - Number(a.due) || a.block_no.localeCompare(b.block_no, undefined, { numeric: true }));
 	}, [blocks, showAll]);
 
+	// Other work: the present non-tappers, then present tappers who have no block (or already have other work),
+	// so a tapper can be given general work for the day. A tapper with a block is left out.
+	const workList = useMemo(
+		() => [...index.presentOthers, ...index.presentTappers.filter((w) => !index.blockAssignment.has(w.id) || index.muster.has(w.id))],
+		[index],
+	);
+
 	const animate = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
 	const pickTapper = async (block: DayBlock, worker: Worker) => {
@@ -127,7 +134,7 @@ function BlocksList({ index }: { index: DayIndex }) {
 			) : (
 				<FlatList
 					{...listProps}
-					data={index.presentOthers}
+					data={workList}
 					keyExtractor={(item) => String(item.id)}
 					renderItem={renderWorker}
 					ListEmptyComponent={<EmptyState icon="briefcase" title={t("blocks.noMuster")} />}

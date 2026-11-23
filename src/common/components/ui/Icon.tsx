@@ -48,6 +48,7 @@ export type IconName =
 	| "briefcase"
 	| "check-circle"
 	| "credit-card"
+	| "printer"
 	| "upload-cloud";
 
 type IconProps = {

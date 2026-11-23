@@ -6,19 +6,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "@/common/components/layout/AppHeader";
 import { Screen } from "@/common/components/layout/Screen";
 import { Badge } from "@/common/components/ui/Badge";
+import { Button } from "@/common/components/ui/Button";
+import { showToast } from "@/common/hooks/useToast";
 import { Card } from "@/common/components/ui/Card";
 import { EmptyState } from "@/common/components/ui/EmptyState";
+import { FadeIn } from "@/common/components/ui/FadeIn";
 import { Icon } from "@/common/components/ui/Icon";
 import { SegmentedControl } from "@/common/components/ui/SegmentedControl";
 import { Text } from "@/common/components/ui/Text";
 import { useLanguageStore, useT } from "@/common/i18n";
 import { userMessage } from "@/common/services/httpClient";
+import { stagger } from "@/common/utils/stagger";
 import { borderWidth, colors, opacity, radius, sizes, spacing } from "@/common/theme/tokens";
 import { hasPermission, useAuthStore } from "@/modules/auth/store/authStore";
 
 import { PaySheet } from "../components/PaySheet";
 import { getCentreWages } from "../services/wageService";
 import type { PayState, WageLine, WageSheet } from "../types/wages";
+import { shareAllPaySlips } from "../utils/paySlip";
 import { currentWageMonth, isSalaried, money, monthName, payStateOf, shiftMonth, shortDate } from "../utils/wageFormat";
 
 type Filter = "all" | "unpaid" | "pending" | "paid";
@@ -43,6 +48,7 @@ export default function WagesPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [filter, setFilter] = useState<Filter>("all");
 	const [open, setOpen] = useState<WageLine | null>(null);
+	const [slipsBusy, setSlipsBusy] = useState(false);
 
 	const load = useCallback(async () => {
 		if (!userId || !centreId) return;
@@ -72,6 +78,19 @@ export default function WagesPage() {
 	const totals = sheet?.totals;
 	const isCurrent = month >= currentWageMonth();
 
+	// the slips of everyone in the current filter, in one PDF
+	const shareSlips = async () => {
+		if (!sheet || shown.length === 0 || slipsBusy) return;
+		setSlipsBusy(true);
+		try {
+			await shareAllPaySlips(shown, sheet, centre?.name ?? "");
+		} catch {
+			showToast(t("wages.slipFailed"), "danger");
+		} finally {
+			setSlipsBusy(false);
+		}
+	};
+
 	const stateLabel = (line: WageLine) => {
 		const state = payStateOf(line);
 		if (state === "unpaid") return t("wages.notPaid");
@@ -86,8 +105,9 @@ export default function WagesPage() {
 		if (shown.length === 0) return <EmptyState icon="inbox" title={t("wages.none")} />;
 		return (
 			<View style={styles.list}>
-				{shown.map((line) => (
-					<Pressable key={line.employee_id} onPress={() => setOpen(line)} accessibilityRole="button" style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}>
+				{shown.map((line, index) => (
+					<FadeIn key={line.employee_id} delay={stagger(index)}>
+					<Pressable onPress={() => setOpen(line)} accessibilityRole="button" style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}>
 						<View style={styles.body}>
 							<Text variant="bodyStrong" numberOfLines={1}>
 								{line.employee_name}
@@ -105,6 +125,7 @@ export default function WagesPage() {
 							<Badge label={stateLabel(line)} tone={STATE_TONE[payStateOf(line)]} />
 						</View>
 					</Pressable>
+					</FadeIn>
 				))}
 			</View>
 		);
@@ -168,9 +189,13 @@ export default function WagesPage() {
 					onChange={setFilter}
 				/>
 
+				{canPay && sheet && shown.length > 0 && !loading && !error ? (
+					<Button label={t("wages.allSlips", { count: shown.length })} icon="printer" variant="secondary" onPress={() => void shareSlips()} loading={slipsBusy} fullWidth />
+				) : null}
+
 				{renderList()}
 			</ScrollView>
-			{open ? <PaySheet key={open.employee_id} line={open} period={month} canPay={canPay} onClose={() => setOpen(null)} onSaved={() => void load()} /> : null}
+			{open && sheet ? <PaySheet key={open.employee_id} line={open} period={month} sheet={sheet} centreName={centre?.name ?? ""} canPay={canPay} onClose={() => setOpen(null)} onSaved={() => void load()} /> : null}
 		</Screen>
 	);
 }

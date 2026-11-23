@@ -1,3 +1,9 @@
+// One named line of the client's wage sheet (IFA, LIC, LWF, GPAIS...): an earning is paid but not in the PF base, a recovery comes off the net
+export type PayHead = { id: number; code: string; label: string; label_ml: string | null; kind: "earning" | "recovery"; sort_order: number };
+
+// What was typed under a pay head for one person's wage month
+export type HeadAmount = { code: string; label: string; label_ml: string | null; kind: "earning" | "recovery"; amount: number };
+
 // One person's wages for a wage month, worked out by the server from attendance, collection, leave and salary
 export type WageLine = {
 	employee_id: number;
@@ -20,6 +26,8 @@ export type WageLine = {
 	gross: number;
 	recoveries: number;
 	recovery_note: string | null;
+	head_earnings: number;
+	heads: HeadAmount[];
 	voucher_amount: number;
 	net: number;
 	paid_amount: number | null;
@@ -56,4 +64,13 @@ export type PaymentInput = {
 	paid_amount: number | null;
 	paid_on?: string;
 	note?: string | null;
+};
+
+// recoveries is the lump "other recoveries"; heads are amounts by pay head code (0 clears one)
+export type EntryInput = {
+	employee_id: number;
+	period: string;
+	recoveries: number;
+	recovery_note: string | null;
+	heads: Record<string, number>;
 };

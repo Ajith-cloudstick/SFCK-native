@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import { LayoutAnimation, StyleSheet, View } from "react-native";
 
 import { Badge } from "@/common/components/ui/Badge";
 import { BottomSheet } from "@/common/components/ui/BottomSheet";
@@ -15,13 +15,17 @@ import { parseNumber } from "@/common/utils/format";
 import { istDate } from "@/common/utils/ist";
 import { useAuthStore } from "@/modules/auth/store/authStore";
 
-import { payWages } from "../services/wageService";
-import type { WageLine } from "../types/wages";
+import { getPayHeads, payWages, saveWageEntry } from "../services/wageService";
+import type { PayHead, WageLine, WageSheet } from "../types/wages";
+import { sharePaySlip } from "../utils/paySlip";
 import { isSalaried, money, payStateOf, shortDate } from "../utils/wageFormat";
 
 type PaySheetProps = {
 	line: WageLine;
 	period: string;
+	sheet: WageSheet;
+	centreName: string;
+	// roles that can pay wages; they also get the pay slip
 	canPay: boolean;
 	onClose: () => void;
 	onSaved: () => void;
@@ -39,7 +43,7 @@ const Row = ({ label, value, strong }: { label: string; value: string; strong?: 
 );
 
 // PaySheet shows how a person's wages were worked out and records what was paid; the amount starts at the net pay
-export function PaySheet({ line, period, canPay, onClose, onSaved }: PaySheetProps) {
+export function PaySheet({ line, period, sheet, centreName, canPay, onClose, onSaved }: PaySheetProps) {
 	const t = useT();
 	const language = useLanguageStore((s) => s.language);
 	const userId = useAuthStore((s) => s.session?.user.id ?? null);
@@ -51,6 +55,60 @@ export function PaySheet({ line, period, canPay, onClose, onSaved }: PaySheetPro
 	const error = submitted && (value === null || value < 0) ? t("wages.amountRequired") : null;
 	const difference = value === null ? 0 : Math.round((line.net - value) * 100) / 100;
 	const state = payStateOf(line);
+	const [slipBusy, setSlipBusy] = useState(false);
+
+	// the client's named earnings and recoveries, typed here by the roles that can pay wages. The line's recoveries
+	// already include the named ones, so only what is left over is "other".
+	const namedRecoveries = line.heads.filter((h) => h.kind === "recovery").reduce((sum, h) => sum + h.amount, 0);
+	const otherNow = Math.max(0, Math.round((line.recoveries - namedRecoveries) * 100) / 100);
+	const [editing, setEditing] = useState(false);
+	const [catalog, setCatalog] = useState<PayHead[]>([]);
+	const [typed, setTyped] = useState<Record<string, string>>(() => Object.fromEntries(line.heads.map((h) => [h.code, String(h.amount)])));
+	const [other, setOther] = useState(otherNow ? String(otherNow) : "");
+	const [otherNote, setOtherNote] = useState(line.recovery_note ?? "Others");
+	const [savingAmounts, setSavingAmounts] = useState(false);
+	const recoveryTotal = catalog.filter((h) => h.kind === "recovery").reduce((sum, h) => sum + (parseNumber(typed[h.code] ?? "") ?? 0), 0) + (parseNumber(other) ?? 0);
+
+	useEffect(() => {
+		if (!canPay || !editing || catalog.length > 0 || !userId) return;
+		getPayHeads(userId)
+			.then((result) => setCatalog(result.data))
+			.catch((e) => showToast(userMessage(e), "danger"));
+	}, [canPay, editing, catalog.length, userId]);
+
+	const saveAmounts = async () => {
+		if (!userId || savingAmounts) return;
+		setSavingAmounts(true);
+		try {
+			const recoveries = parseNumber(other) ?? 0;
+			await saveWageEntry(userId, {
+				employee_id: line.employee_id,
+				period,
+				recoveries,
+				recovery_note: recoveries > 0 ? otherNote.trim() || null : null,
+				heads: Object.fromEntries(catalog.map((h) => [h.code, parseNumber(typed[h.code] ?? "") ?? 0])),
+			});
+			showToast(t("wages.amountsSaved"), "success");
+			onSaved();
+			onClose();
+		} catch (e) {
+			showToast(userMessage(e), "danger");
+		} finally {
+			setSavingAmounts(false);
+		}
+	};
+
+	const shareSlip = async () => {
+		if (slipBusy) return;
+		setSlipBusy(true);
+		try {
+			await sharePaySlip(line, sheet, centreName);
+		} catch {
+			showToast(t("wages.slipFailed"), "danger");
+		} finally {
+			setSlipBusy(false);
+		}
+	};
 
 	const save = async (paid: number | null) => {
 		setSubmitted(true);
@@ -76,9 +134,12 @@ export function PaySheet({ line, period, canPay, onClose, onSaved }: PaySheetPro
 			subtitle={[line.check_roll_no, line.employee_code].filter(Boolean).join(" · ")}
 			footer={
 				canPay ? (
-					<View style={styles.footer}>
-						{line.paid_amount !== null ? <Button label={t("wages.notPaid")} icon="rotate-ccw" variant="secondary" onPress={() => void save(null)} disabled={busy} style={styles.flex} /> : null}
-						<Button label={t("wages.markPaid")} icon="check" onPress={() => void save(value ?? -1)} loading={busy} style={styles.flex} />
+					<View style={styles.footerStack}>
+						<Button label={t("wages.paySlip")} icon="printer" variant="secondary" onPress={() => void shareSlip()} loading={slipBusy} disabled={busy} fullWidth />
+						<View style={styles.footer}>
+							{line.paid_amount !== null ? <Button label={t("wages.notPaid")} icon="rotate-ccw" variant="secondary" onPress={() => void save(null)} disabled={busy} style={styles.flex} /> : null}
+							<Button label={t("wages.markPaid")} icon="check" onPress={() => void save(value ?? -1)} loading={busy} style={styles.flex} />
+						</View>
 					</View>
 				) : undefined
 			}
@@ -98,10 +159,13 @@ export function PaySheet({ line, period, canPay, onClose, onSaved }: PaySheetPro
 				)}
 				{line.lcc ? <Row label={t("wages.lcc")} value={money(line.lcc)} /> : null}
 				<Row label={t("wages.pf")} value={`− ${money(line.pf)}`} />
-				{line.recoveries ? <Row label={line.recovery_note ? t("wages.recoveriesFor", { note: line.recovery_note }) : t("wages.recoveries")} value={`− ${money(line.recoveries)}`} /> : null}
+				{line.heads.filter((h) => h.kind === "earning").map((h) => <Row key={h.code} label={h.label} value={money(h.amount)} />)}
+				{line.heads.filter((h) => h.kind === "recovery").map((h) => <Row key={h.code} label={h.label} value={`− ${money(h.amount)}`} />)}
+				{otherNow ? <Row label={line.recovery_note ? t("wages.recoveriesFor", { note: line.recovery_note }) : t("wages.otherLine")} value={`− ${money(otherNow)}`} /> : null}
 				<View style={styles.divider} />
 				<Row label={t("wages.net")} value={money(line.net)} strong />
 				{line.voucher_amount ? <Row label={t("wages.voucher")} value={money(line.voucher_amount)} /> : null}
+				{line.voucher_amount ? <Row label={t("wages.totalPayable")} value={money(Math.round((line.net + line.voucher_amount) * 100) / 100)} strong /> : null}
 			</View>
 
 			{line.paid_amount !== null ? (
@@ -112,6 +176,44 @@ export function PaySheet({ line, period, canPay, onClose, onSaved }: PaySheetPro
 					{state === "pending" ? <Badge label={t("wages.pendingAmount", { amount: money(line.balance) })} tone="warning" /> : null}
 					{state === "extra" ? <Badge label={t("wages.extraAmount", { amount: money(-line.balance) })} tone="danger" /> : null}
 					{state === "paid" ? <Badge label={t("wages.paid")} tone="success" /> : null}
+				</View>
+			) : null}
+
+			{canPay ? (
+				<View style={styles.amounts}>
+					<Button label={t("wages.editAmounts")} icon={editing ? "chevron-down" : "edit-2"} variant="secondary" onPress={() => {
+							LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+							setEditing((v) => !v);
+						}} fullWidth />
+					{editing ? (
+						<>
+							<Text variant="label" tone="muted">
+								{t("wages.earningsHeading")}
+							</Text>
+							{catalog
+								.filter((h) => h.kind === "earning")
+								.map((h) => (
+									<NumberField key={h.code} label={h.label} unit="₹" value={typed[h.code] ?? ""} onChangeText={(v) => setTyped((c) => ({ ...c, [h.code]: v }))} placeholder="0" returnKeyType="done" />
+								))}
+							<Text variant="label" tone="muted">
+								{t("wages.recoveriesHeading")}
+							</Text>
+							{catalog
+								.filter((h) => h.kind === "recovery")
+								.map((h) => (
+									<NumberField key={h.code} label={h.label} unit="₹" value={typed[h.code] ?? ""} onChangeText={(v) => setTyped((c) => ({ ...c, [h.code]: v }))} placeholder="0" returnKeyType="done" />
+								))}
+							<NumberField label={t("wages.otherRecoveries")} unit="₹" value={other} onChangeText={setOther} placeholder="0" returnKeyType="done" />
+							<TextField label={t("wages.otherDetails")} value={otherNote} onChangeText={setOtherNote} placeholder="Others" returnKeyType="done" />
+							<View style={styles.row}>
+								<Text variant="bodyStrong">{t("wages.totalRecoveries")}</Text>
+								<Text variant="bodyStrong" tabular>
+									{money(Math.round(recoveryTotal * 100) / 100)}
+								</Text>
+							</View>
+							<Button label={t("wages.saveAmounts")} icon="check" onPress={() => void saveAmounts()} loading={savingAmounts} disabled={catalog.length === 0} fullWidth />
+						</>
+					) : null}
 				</View>
 			) : null}
 
@@ -138,7 +240,9 @@ const styles = StyleSheet.create({
 	rowLabel: { flex: 1 },
 	divider: { height: borderWidth.hairline, backgroundColor: colors.border, marginVertical: spacing.xs },
 	paidLine: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+	footerStack: { gap: spacing.sm },
 	footer: { flexDirection: "row", gap: spacing.sm },
 	flex: { flex: 1 },
 	flexRow: { flexDirection: "row" },
+	amounts: { gap: spacing.sm },
 });

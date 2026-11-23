@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { Alert } from "react-native";
 
 import { showToast } from "@/common/hooks/useToast";
 import { useLanguageStore, useT } from "@/common/i18n";
@@ -62,5 +63,42 @@ export function useMarkWorker() {
 			return "marked";
 		},
 		[language, t],
+	);
+}
+
+// Tapping a worker already present today offers double duty: a second shift the same day.
+// It is queued like any attendance (works offline) and the Estate Manager approves it on the web.
+export function useRequestDoubleDuty() {
+	const t = useT();
+
+	const send = useCallback(
+		async (worker: Worker) => {
+			const day = currentDay();
+			if (!day || inFlight.has(worker.id)) return;
+			inFlight.add(worker.id);
+			try {
+				const payload: AttendancePayload = { employee_id: worker.id, cc_id: day.centre.id, device_time: new Date().toISOString(), is_double_duty: true };
+				await enqueue("attendance", payload);
+				showToast(t("attendance.doubleDutySent", { name: worker.name }), "success");
+			} catch {
+				showToast(t("errors.saveFailed"), "danger");
+			} finally {
+				inFlight.delete(worker.id);
+			}
+		},
+		[t],
+	);
+
+	return useCallback(
+		(worker: Worker) => {
+			const day = currentDay();
+			const normal = day ? buildDayIndex(day).attendance.get(worker.id) : undefined;
+			if (!normal) return;
+			Alert.alert(t("attendance.doubleDutyTitle", { name: worker.name }), t("attendance.doubleDutyBody", { time: istClock(normal.check_in) }), [
+				{ text: t("common.cancel"), style: "cancel" },
+				{ text: t("attendance.doubleDutyRequest"), onPress: () => void send(worker) },
+			]);
+		},
+		[send, t],
 	);
 }

@@ -30,10 +30,17 @@ function applyAttendance(day: CentreDay, item: OutboxItem, id: number): CentreDa
 	const employeeId = num(p.employee_id);
 	const deviceTime = str(p.device_time);
 	if (employeeId === null || !deviceTime || istDate(new Date(deviceTime)) !== day.date) return day;
-	if (day.attendance.some((a) => a.employee_id === employeeId && !a.is_double_duty)) return day;
 	const worker = day.workers.find((w) => w.id === employeeId);
 	if (!worker) return day;
 	const duty = dutyTypeOf(worker);
+	// double duty: needs a present normal attendance, one per day, always waits for the Estate Manager
+	if (p.is_double_duty) {
+		const mine = day.attendance.filter((a) => a.employee_id === employeeId);
+		if (!mine.some((a) => !a.is_double_duty && a.status === "present") || mine.some((a) => a.is_double_duty)) return day;
+		const extra = { id, client_uuid: item.clientUuid, date: day.date, employee_id: employeeId, cc_id: day.centre.id, duty_type: duty, status: "pending" as const, is_late: false, is_double_duty: true, check_in: deviceTime, source: "mobile" };
+		return { ...day, attendance: [...day.attendance, extra] };
+	}
+	if (day.attendance.some((a) => a.employee_id === employeeId && !a.is_double_duty)) return day;
 	const arrival = classifyArrival(timingFor(day, duty), new Date(deviceTime));
 	if (arrival.blocked) return day;
 	const record = {

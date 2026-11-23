@@ -14,7 +14,15 @@ import { dutyTypeOf } from "@/modules/centre/utils/duty";
 type WorkerRowProps = {
 	worker: Worker;
 	record: AttendanceRecord | undefined;
+	doubleDuty?: AttendanceRecord;
 	onPress: (worker: Worker) => void;
+};
+
+// double duty: waiting for the Estate Manager, approved, or rejected (saved as absent)
+const doubleDutyBadge: Partial<Record<WorkerState, { label: TranslationKey; tone: BadgeTone }>> = {
+	pending: { label: "attendance.doubleDutyWaiting", tone: "warning" },
+	present: { label: "attendance.doubleDutyApproved", tone: "success" },
+	absent: { label: "attendance.doubleDutyRejected", tone: "danger" },
 };
 
 export const stateBadge: Record<WorkerState, { label: TranslationKey; tone: BadgeTone }> = {
@@ -42,7 +50,7 @@ const marks: Record<WorkerState, { icon: IconName | null; fg: string; bg: string
 	leave: { icon: "info", fg: colors.info.fg, bg: colors.info.bg, label: "attendance.statusLeave", tone: "info" },
 };
 
-function WorkerRowBase({ worker, record, onPress }: WorkerRowProps) {
+function WorkerRowBase({ worker, record, doubleDuty, onPress }: WorkerRowProps) {
 	const t = useT();
 	const language = useLanguageStore((s) => s.language);
 	const state: WorkerState = record?.status ?? "not_marked";
@@ -57,6 +65,7 @@ function WorkerRowBase({ worker, record, onPress }: WorkerRowProps) {
 			: t(mark.label);
 	// sent here from another centre: say where from, next to the ID
 	const from = worker.moved_from == null ? null : worker.moved_from ? t("attendance.fromCentre", { centre: worker.moved_from }) : t("attendance.fromAnother");
+	const extra = doubleDuty ? doubleDutyBadge[doubleDuty.status] : undefined;
 
 	return (
 		<Pressable
@@ -79,6 +88,11 @@ function WorkerRowBase({ worker, record, onPress }: WorkerRowProps) {
 				<Text variant="caption" tone="subtle" numberOfLines={1} tabular>
 					{from ? `${workerCode(worker)} · ${from}` : workerCode(worker)}
 				</Text>
+				{extra ? (
+					<View style={styles.extra}>
+						<Badge label={t(extra.label)} tone={extra.tone} />
+					</View>
+				) : null}
 			</View>
 			<Text variant="label" tone={away ? "subtle" : record?.is_late && state === "present" ? "warning" : mark.tone} tabular>
 				{status}
@@ -105,4 +119,5 @@ const styles = StyleSheet.create({
 	body: { flex: 1, gap: spacing.xxs },
 	nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
 	name: { flexShrink: 1 },
+	extra: { flexDirection: "row" },
 });

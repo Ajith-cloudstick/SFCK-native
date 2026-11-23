@@ -25,6 +25,9 @@ export function CentreHeader() {
 	const selectedDate = useCentreDayStore((s) => s.selectedDate);
 	const pastDay = useIsPastDay();
 	const [view, setView] = useState<AccountView | null>(null);
+	// while the sheet slides away the view is already null; keep drawing the last one so the Account card does not flash in
+	const [lastView, setLastView] = useState<AccountView>("account");
+	if (view && view !== lastView) setLastView(view);
 	const [picking, setPicking] = useState(false);
 	const scopeCentre = session?.scope.ccs.find((c) => c.id === centreId);
 	const title = day?.centre.name ?? scopeCentre?.name ?? t("appName");
@@ -78,7 +81,7 @@ export function CentreHeader() {
 				</View>
 			) : null}
 			<DaySheet visible={picking} selected={shownDate} onSelect={selectDate} onClose={() => setPicking(false)} />
-			<AccountSheet visible={view !== null} view={view ?? "account"} onChangeView={setView} onClose={() => setView(null)} />
+			<AccountSheet visible={view !== null} view={view ?? lastView} onChangeView={setView} onClose={() => setView(null)} />
 		</>
 	);
 }

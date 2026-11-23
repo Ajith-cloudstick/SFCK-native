@@ -17,9 +17,12 @@ type TapperRowProps = {
 	assignment: Assignment | undefined;
 	entry: Collection | undefined;
 	onOpen: (worker: Worker) => void;
+	onSlip: (worker: Worker, entry: Collection) => void;
+	// absent for roles that cannot change collections
+	onCorrect?: (worker: Worker, entry: Collection) => void;
 };
 
-function TapperRowBase({ worker, assignment, entry, onOpen }: TapperRowProps) {
+function TapperRowBase({ worker, assignment, entry, onOpen, onSlip, onCorrect }: TapperRowProps) {
 	const t = useT();
 	const block = assignment?.block_no ? t("blocks.blockNo", { no: assignment.block_no }) : t("collection.noBlock");
 
@@ -48,13 +51,21 @@ function TapperRowBase({ worker, assignment, entry, onOpen }: TapperRowProps) {
 				) : null}
 			</View>
 			{entry ? (
-				<View style={styles.footer}>
-					<Text variant="caption" tone="muted" tabular style={styles.summary}>
-						{t("collection.summaryLine", { latex: entry.latex_kg, drc: entry.sample_drc, scrap: entry.scrap_kg })}
-					</Text>
-					{entry.id === 0 ? <Badge label={t("collection.queued")} tone="warning" /> : null}
-					<Badge label={t("collection.locked")} tone="neutral" />
-				</View>
+				<>
+					<View style={styles.footer}>
+						<Text variant="caption" tone="muted" tabular style={styles.summary}>
+							{t("collection.summaryLine", { latex: entry.latex_kg, drc: entry.sample_drc, scrap: entry.scrap_kg })}
+						</Text>
+						{entry.id === 0 ? <Badge label={t("collection.queued")} tone="warning" /> : null}
+						<Badge label={t("collection.locked")} tone="neutral" />
+					</View>
+					<View style={styles.actions}>
+						<Button label={t("collection.weightSlip")} icon="printer" size="sm" variant="secondary" onPress={() => onSlip(worker, entry)} style={styles.flex} />
+						{onCorrect ? (
+							<Button label={t("correction.button")} icon="edit-2" size="sm" variant="secondary" onPress={() => onCorrect(worker, entry)} style={styles.flex} />
+						) : null}
+					</View>
+				</>
 			) : (
 				<Button label={t("collection.add")} icon="plus" onPress={() => onOpen(worker)} accessibilityLabel={`${t("collection.add")}, ${worker.name}, ${block}`} fullWidth />
 			)}
@@ -71,4 +82,6 @@ const styles = StyleSheet.create({
 	total: { alignItems: "flex-end" },
 	footer: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 	summary: { flex: 1 },
+	actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+	flex: { flexGrow: 1, flexBasis: 150 },
 });

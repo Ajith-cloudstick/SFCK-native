@@ -4,6 +4,8 @@ import { dutyTypeOf } from "./duty";
 export type DayIndex = {
 	day: CentreDay;
 	attendance: Map<number, AttendanceRecord>;
+	// double duty requests, apart from the normal attendance above
+	doubleDuty: Map<number, AttendanceRecord>;
 	blockAssignment: Map<number, Assignment>;
 	muster: Map<number, Assignment>;
 	collections: Map<number, Collection[]>;
@@ -17,10 +19,8 @@ export type DayIndex = {
 
 export function buildDayIndex(day: CentreDay): DayIndex {
 	const attendance = new Map<number, AttendanceRecord>();
-	for (const record of day.attendance) {
-		if (record.is_double_duty && attendance.has(record.employee_id)) continue;
-		attendance.set(record.employee_id, record);
-	}
+	const doubleDuty = new Map<number, AttendanceRecord>();
+	for (const record of day.attendance) (record.is_double_duty ? doubleDuty : attendance).set(record.employee_id, record);
 	const blockAssignment = new Map<number, Assignment>();
 	const muster = new Map<number, Assignment>();
 	for (const a of day.assignments) (a.kind === "block" ? blockAssignment : muster).set(a.employee_id, a);
@@ -32,6 +32,7 @@ export function buildDayIndex(day: CentreDay): DayIndex {
 	return {
 		day,
 		attendance,
+		doubleDuty,
 		blockAssignment,
 		muster,
 		collections,

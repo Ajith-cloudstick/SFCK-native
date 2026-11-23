@@ -1,5 +1,6 @@
-import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
+import { usePressScale } from "@/common/hooks/usePressScale";
 import { borderWidth, colors, opacity, radius, sizes, spacing } from "@/common/theme/tokens";
 
 import { Icon, type IconName } from "./Icon";
@@ -31,6 +32,7 @@ const palette: Record<ButtonVariant, { bg: string; fg: string; border: string }>
 export function Button({ label, onPress, variant = "primary", size = "md", icon, loading, disabled, fullWidth, style, accessibilityLabel }: ButtonProps) {
 	const tone = palette[variant];
 	const inactive = !!disabled || !!loading;
+	const press = usePressScale();
 	return (
 		<Pressable
 			accessibilityRole="button"
@@ -38,6 +40,8 @@ export function Button({ label, onPress, variant = "primary", size = "md", icon,
 			accessibilityState={{ disabled: inactive, busy: !!loading }}
 			disabled={inactive}
 			onPress={onPress}
+			onPressIn={press.onPressIn}
+			onPressOut={press.onPressOut}
 			style={({ pressed }) => [
 				styles.base,
 				styles[size],
@@ -51,12 +55,12 @@ export function Button({ label, onPress, variant = "primary", size = "md", icon,
 			{loading ? (
 				<ActivityIndicator color={tone.fg} />
 			) : (
-				<View style={styles.content}>
+				<Animated.View style={[styles.content, { transform: [{ scale: press.scale }] }]}>
 					{icon ? <Icon name={icon} size="sm" color={tone.fg} /> : null}
 					<Text variant={size === "lg" ? "subheading" : "bodyStrong"} style={{ color: tone.fg }} numberOfLines={1}>
 						{label}
 					</Text>
-				</View>
+				</Animated.View>
 			)}
 		</Pressable>
 	);

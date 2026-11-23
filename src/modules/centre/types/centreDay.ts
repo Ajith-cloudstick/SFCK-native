@@ -192,6 +192,8 @@ export type AttendancePayload = {
 	employee_id: number;
 	cc_id: number;
 	device_time: string;
+	// a second shift the same day, on top of a present attendance; the Estate Manager approves it
+	is_double_duty?: boolean;
 };
 
 export type BlockAssignmentPayload = {
