@@ -1,4 +1,4 @@
-export type OutboxType = "attendance" | "assignment" | "collection" | "chemical_usage" | "requisition" | "requisition_receive" | "worker_request" | "worker_request_cancel";
+export type OutboxType = "attendance" | "half_day" | "assignment" | "collection" | "chemical_usage" | "requisition" | "requisition_receive" | "worker_request" | "worker_request_cancel";
 
 export type OutboxStatus = "pending" | "failed";
 

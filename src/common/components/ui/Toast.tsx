@@ -1,3 +1,4 @@
+import { usePathname } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -8,7 +9,7 @@ import { colors, radius, sizes, spacing } from "@/common/theme/tokens";
 import { Icon, type IconName } from "./Icon";
 import { Text } from "./Text";
 
-const palette: Record<ToastTone, { bg: string; fg: string; icon: IconName }> = {
+export const toastPalette: Record<ToastTone, { bg: string; fg: string; icon: IconName }> = {
 	default: { bg: colors.brand[950], fg: colors.onBrand, icon: "info" },
 	success: { bg: colors.brand[800], fg: colors.onBrand, icon: "check" },
 	warning: { bg: colors.warning.bg, fg: colors.warning.fg, icon: "clock" },
@@ -19,9 +20,11 @@ export function Toast() {
 	const insets = useSafeAreaInsets();
 	const message = useToast((state) => state.message);
 	const tone = useToast((state) => state.tone);
+	// the scanner shows its own message, which stays until the next scan, so the floating one is left out there
+	const pathname = usePathname();
 
-	if (!message) return null;
-	const p = palette[tone];
+	if (!message || pathname === "/scan") return null;
+	const p = toastPalette[tone];
 
 	return (
 		<View pointerEvents="none" style={[styles.host, { bottom: insets.bottom + sizes.tabBar + sizes.scanOverhang + spacing.md }]}>

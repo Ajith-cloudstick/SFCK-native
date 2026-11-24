@@ -59,6 +59,10 @@ export type AttendanceRecord = {
 	status: AttendanceStatus;
 	is_late: boolean;
 	is_double_duty: boolean;
+	// half a day present; covered_by is the worker who did the other half
+	is_half_day?: boolean;
+	covered_by?: number | null;
+	covered_by_name?: string | null;
 	check_in: string;
 	source: string;
 };
@@ -194,6 +198,15 @@ export type AttendancePayload = {
 	device_time: string;
 	// a second shift the same day, on top of a present attendance; the Estate Manager approves it
 	is_double_duty?: boolean;
+};
+
+// a present day made a half day (or back to a full day); sent by worker and day because the attendance may still be queued
+export type HalfDayPayload = {
+	employee_id: number;
+	cc_id: number;
+	date: string;
+	half_day: boolean;
+	covered_by: number | null;
 };
 
 export type BlockAssignmentPayload = {

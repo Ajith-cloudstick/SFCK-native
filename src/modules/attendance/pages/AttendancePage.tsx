@@ -26,9 +26,11 @@ import { SendWorkersSheet } from "@/modules/workers/components/SendWorkersSheet"
 import { WorkerRequestCard } from "@/modules/workers/components/WorkerRequestCard";
 import { useWorkerRequest } from "@/modules/workers/hooks/useWorkerRequest";
 
+import { HalfDaySheet } from "../components/HalfDaySheet";
 import { ManualEntrySheet } from "../components/ManualEntrySheet";
 import { WorkerRow } from "../components/WorkerRow";
 import { useMarkWorker, useRequestDoubleDuty } from "../hooks/useMarkWorker";
+import { useSetHalfDay } from "../hooks/useSetHalfDay";
 import type { AttendanceFilter } from "../types/attendance";
 
 function matches(index: DayIndex, worker: Worker, filter: AttendanceFilter): boolean {
@@ -61,6 +63,8 @@ function AttendanceList({ index }: { index: DayIndex }) {
 	const { cancel } = useWorkerRequest();
 	const [asking, setAsking] = useState(false);
 	const [bringing, setBringing] = useState(false);
+	const [halfFor, setHalfFor] = useState<Worker | null>(null);
+	const setHalfDay = useSetHalfDay();
 	const canAsk = hasPermission(session, "can_request_worker") && !pastDay;
 	// senders bring workers from anywhere for any period; others who mark attendance bring one of their estate for today
 	const canSendFull = hasPermission(session, "can_send_worker");
@@ -95,6 +99,10 @@ function AttendanceList({ index }: { index: DayIndex }) {
 
 	// same rule as the web: today only, present for the normal shift, no double duty yet
 	const canDoubleDuty = hasPermission(session, "can_change_attendance") && !pastDay;
+	// half days are marked by whoever marks attendance, for today
+	const canHalfDay = canDoubleDuty;
+	const openHalfDay = useCallback((worker: Worker) => setHalfFor(worker), []);
+	const halfCandidates = halfFor ? index.markable.filter((w) => w.id !== halfFor.id && index.attendance.get(w.id)?.status === "present") : [];
 	const onPress = useCallback(
 		(worker: Worker) => {
 			if (canDoubleDuty && !worker.working_at && index.attendance.get(worker.id)?.status === "present" && !index.doubleDuty.has(worker.id)) {
@@ -106,8 +114,8 @@ function AttendanceList({ index }: { index: DayIndex }) {
 		[canDoubleDuty, index, markWorker, requestDoubleDuty],
 	);
 	const renderItem = useCallback(
-		({ item }: { item: Worker }) => <WorkerRow worker={item} record={index.attendance.get(item.id)} doubleDuty={index.doubleDuty.get(item.id)} onPress={onPress} />,
-		[index, onPress],
+		({ item }: { item: Worker }) => <WorkerRow worker={item} record={index.attendance.get(item.id)} doubleDuty={index.doubleDuty.get(item.id)} onPress={onPress} onHalfDay={canHalfDay ? openHalfDay : undefined} />,
+		[index, onPress, canHalfDay, openHalfDay],
 	);
 
 	return (
@@ -183,6 +191,19 @@ function AttendanceList({ index }: { index: DayIndex }) {
 				onCollect={(worker) => {
 					setSheetOpen(false);
 					setCollectFor(worker);
+				}}
+			/>
+			<HalfDaySheet
+				key={halfFor?.id ?? "none"}
+				worker={halfFor}
+				record={halfFor ? index.attendance.get(halfFor.id) : undefined}
+				candidates={halfCandidates}
+				onClose={() => setHalfFor(null)}
+				onMark={(coveredBy) => {
+					if (halfFor) void setHalfDay(halfFor, true, coveredBy).then((saved) => saved && setHalfFor(null));
+				}}
+				onFullDay={() => {
+					if (halfFor) void setHalfDay(halfFor, false, null).then((saved) => saved && setHalfFor(null));
 				}}
 			/>
 			<AskWorkersSheet visible={asking} estateId={index.day.centre.estate_id} onClose={() => setAsking(false)} />

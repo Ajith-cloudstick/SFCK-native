@@ -22,6 +22,7 @@ export function describeItem(item: OutboxItem, day: CentreDay | null, t: Transla
 		return { title: t("sync.typeWorkerRequest", { tappers: Number(p.tappers_needed ?? 0), general: Number(p.general_needed ?? 0) }), subtitle: time };
 	}
 	if (item.type === "worker_request_cancel") return { title: t("sync.typeWorkerCancel"), subtitle: time };
+	if (item.type === "half_day") return { title: t(p.half_day ? "sync.typeHalfDay" : "sync.typeFullDay", { name }), subtitle: time };
 	if (item.type === "attendance") return { title: t(p.is_double_duty ? "sync.typeDoubleDuty" : "sync.typeAttendance", { name }), subtitle: time };
 	if (item.type === "collection") {
 		return { title: t("sync.typeCollection", { name }), subtitle: `${time} · ${t("collection.summaryLine", { latex: String(p.latex_kg ?? 0), drc: String(p.sample_drc ?? 0), scrap: String(p.scrap_kg ?? 0) })}` };

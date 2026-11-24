@@ -2,15 +2,19 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "ex
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/common/components/ui/Button";
+import { toastPalette } from "@/common/components/ui/Toast";
 import { Icon } from "@/common/components/ui/Icon";
 import { Text } from "@/common/components/ui/Text";
-import { showToast } from "@/common/hooks/useToast";
+import { readCache, writeCache } from "@/common/db/cacheRepo";
+import { showToast, useToast, type ToastTone } from "@/common/hooks/useToast";
 import { useT } from "@/common/i18n";
+import { istDate } from "@/common/utils/ist";
+import { useAuthStore } from "@/modules/auth/store/authStore";
 import { borderWidth, colors, duration, opacity, radius, sizes, spacing } from "@/common/theme/tokens";
 import { currentDay, useCentreDayStore, useDayIndex, useIsPastDay } from "@/modules/centre/store/centreDayStore";
 import type { Worker } from "@/modules/centre/types/centreDay";
@@ -40,22 +44,60 @@ export default function ScannerPage() {
 	const centreName = useCentreDayStore((s) => s.serverDay?.centre.name ?? "");
 	const markWorker = useMarkWorker();
 	const [torch, setTorch] = useState(false);
-	const [marked, setMarked] = useState(0);
-	const [last, setLast] = useState<string | null>(null);
+	// the day's count and last name are kept on this phone per user, centre and date, so a refresh or reopening the scanner keeps them
+	const userId = useAuthStore((s) => s.session?.user.id ?? null);
+	const centreId = useAuthStore((s) => s.centreId);
+	const statsKey = userId && centreId ? `scan-stats:${userId}:${centreId}:${istDate()}` : null;
+	const [stats, setStats] = useState<{ marked: number; last: string | null }>({ marked: 0, last: null });
+	const { marked, last } = stats;
+	const statsLoaded = useRef(false);
 	const [manualOpen, setManualOpen] = useState(false);
 	const [collectFor, setCollectFor] = useState<Worker | null>(null);
+	// the message of the latest scan (marked, late and waiting, already marked, closed, not found...), kept until the next one
+	const [notice, setNotice] = useState<{ message: string; tone: ToastTone } | null>(null);
+	const toastId = useToast((s) => s.id);
+	const openedAt = useRef(toastId);
 	const index = useDayIndex();
 	const sheetOpen = manualOpen || collectFor !== null;
 	const recent = useRef(new Map<string, number>());
 	const busy = useRef(false);
 
+	useEffect(() => {
+		// only messages raised since the scanner opened, not one left over from the previous screen
+		const { message, tone } = useToast.getState();
+		if (message && toastId !== openedAt.current) setNotice({ message, tone });
+	}, [toastId]);
+
 	const close = () => (router.canGoBack() ? router.back() : router.replace("/attendance"));
+
+	useEffect(() => {
+		statsLoaded.current = false;
+		if (!statsKey) return;
+		let live = true;
+		readCache<{ marked: number; last: string | null }>(statsKey)
+			.then((saved) => {
+				// a scan made before this loaded is kept as it is
+				if (live && saved) setStats((now) => (now.marked === 0 && now.last === null ? saved.value : now));
+			})
+			.catch(() => undefined)
+			.finally(() => {
+				if (live) statsLoaded.current = true;
+			});
+		return () => {
+			live = false;
+		};
+	}, [statsKey]);
+
+	useEffect(() => {
+		if (statsKey && statsLoaded.current) writeCache(statsKey, stats).catch(() => undefined);
+	}, [statsKey, stats]);
+
+	const countScan = useCallback((name: string, counted: boolean) => setStats((now) => ({ marked: now.marked + (counted ? 1 : 0), last: name })), []);
 
 	const record = useCallback((worker: Worker, outcome: MarkOutcome) => {
 		Haptics.notificationAsync(feedback[outcome]).catch(() => undefined);
-		if (outcome === "marked" || outcome === "waiting") setMarked((n) => n + 1);
-		setLast(worker.name);
-	}, []);
+		countScan(worker.name, outcome === "marked" || outcome === "waiting");
+	}, [countScan]);
 
 	// First scan of the day marks attendance; scanning a present tapper again opens their collection entry.
 	// The camera reports a card many times a second, so a card only counts again once it has been out of
@@ -82,9 +124,10 @@ export default function ScannerPage() {
 					record(worker, await markWorker(worker));
 					return;
 				}
-				if (attendance.status !== "present") {
+				// present, or late and waiting for approval: either way the tapper is at work and the collection opens
+				if (attendance.status !== "present" && attendance.status !== "pending") {
 					Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
-					showToast(t("scan.waitingApproval", { name: worker.name }), "warning");
+					showToast(t("scan.notPresent", { name: worker.name }), "warning");
 					return;
 				}
 				if (dayIndex.collections.has(worker.id)) {
@@ -93,13 +136,13 @@ export default function ScannerPage() {
 					return;
 				}
 				Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-				setLast(worker.name);
+				countScan(worker.name, false);
 				setCollectFor(worker);
 			} finally {
 				busy.current = false;
 			}
 		},
-		[markWorker, record, sheetOpen, t],
+		[countScan, markWorker, record, sheetOpen, t],
 	);
 
 	const askAgain = () => {
@@ -200,6 +243,14 @@ export default function ScannerPage() {
 			{renderCamera()}
 
 			<View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+				{notice ? (
+					<View style={[styles.notice, { backgroundColor: toastPalette[notice.tone].bg }]} accessibilityLiveRegion="polite">
+						<Icon name={toastPalette[notice.tone].icon} size="sm" color={toastPalette[notice.tone].fg} />
+						<Text variant="bodyStrong" style={[styles.noticeText, { color: toastPalette[notice.tone].fg }]}>
+							{notice.message}
+						</Text>
+					</View>
+				) : null}
 				<View style={styles.countRow}>
 					<View style={styles.flex}>
 						<Text variant="caption" style={styles.onCameraMuted}>
@@ -232,7 +283,7 @@ export default function ScannerPage() {
 				onMarked={record}
 				onCollect={(worker) => {
 					setManualOpen(false);
-					setLast(worker.name);
+					countScan(worker.name, false);
 					setCollectFor(worker);
 				}}
 			/>
@@ -270,6 +321,8 @@ const styles = StyleSheet.create({
 	bottomLeft: { bottom: 0, left: 0, borderBottomWidth: borderWidth.heavy, borderLeftWidth: borderWidth.heavy, borderBottomLeftRadius: radius.lg },
 	bottomRight: { bottom: 0, right: 0, borderBottomWidth: borderWidth.heavy, borderRightWidth: borderWidth.heavy, borderBottomRightRadius: radius.lg },
 	hint: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.cameraScrim, overflow: "hidden" },
+	notice: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderRadius: radius.md },
+	noticeText: { flex: 1 },
 	footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md, backgroundColor: colors.camera },
 	countRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
 	last: { flex: 1, alignItems: "flex-end", gap: spacing.xxs },

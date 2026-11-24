@@ -9,6 +9,7 @@ import type {
 	CentreStock,
 	ChemicalUsagePayload,
 	CollectionPayload,
+	HalfDayPayload,
 	MusterAssignmentPayload,
 	RequisitionPayload,
 	RequisitionReceivePayload,
@@ -57,6 +58,17 @@ function applyAttendance(day: CentreDay, item: OutboxItem, id: number): CentreDa
 		source: "mobile",
 	};
 	return { ...day, attendance: [...day.attendance, record] };
+}
+
+function applyHalfDay(day: CentreDay, item: OutboxItem): CentreDay {
+	const p = item.payload as Partial<HalfDayPayload>;
+	const employeeId = num(p.employee_id);
+	if (employeeId === null || str(p.date) !== day.date) return day;
+	const halfDay = p.half_day === true;
+	const coveredBy = halfDay ? num(p.covered_by) : null;
+	const coveredName = coveredBy === null ? null : (day.workers.find((w) => w.id === coveredBy)?.name ?? null);
+	const attendance = day.attendance.map((a) => (a.employee_id === employeeId && !a.is_double_duty && a.status === "present" ? { ...a, is_half_day: halfDay, covered_by: coveredBy, covered_by_name: coveredName } : a));
+	return { ...day, attendance };
 }
 
 function applyAssignment(day: CentreDay, item: OutboxItem, id: number): CentreDay {
@@ -206,6 +218,8 @@ export function applyItem(day: CentreDay, item: OutboxItem, id = 0): CentreDay {
 	switch (item.type) {
 		case "attendance":
 			return seen(day.attendance) ? day : applyAttendance(day, item, id);
+		case "half_day":
+			return applyHalfDay(day, item);
 		case "assignment":
 			return seen(day.assignments) ? day : applyAssignment(day, item, id);
 		case "collection":

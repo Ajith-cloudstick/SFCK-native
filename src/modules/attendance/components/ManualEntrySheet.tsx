@@ -39,8 +39,9 @@ export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: Manu
 	// like a second scan: a present tapper without a collection goes on to the collection entry
 	const tapper = !!match && dutyTypeOf(match) === "tapper";
 	const collected = !!match && !!index?.collections.has(match.id);
-	const canCollect = !!onCollect && tapper && record?.status === "present" && !collected;
-	const note = !match || !record || !tapper ? null : collected ? t("scan.collectionDone", { name: match.name }) : record.status !== "present" ? t("scan.waitingApproval", { name: match.name }) : null;
+	const atWork = record?.status === "present" || record?.status === "pending";
+	const canCollect = !!onCollect && tapper && atWork && !collected;
+	const note = !match || !record || !tapper ? null : collected ? t("scan.collectionDone", { name: match.name }) : !atWork ? t("scan.notPresent", { name: match.name }) : null;
 
 	const close = () => {
 		setCode("");

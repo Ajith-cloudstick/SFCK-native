@@ -16,6 +16,8 @@ type WorkerRowProps = {
 	record: AttendanceRecord | undefined;
 	doubleDuty?: AttendanceRecord;
 	onPress: (worker: Worker) => void;
+	// the ½ button on a present worker; left out when half days cannot be marked (past day, no permission)
+	onHalfDay?: (worker: Worker) => void;
 };
 
 // double duty: waiting for the Estate Manager, approved, or rejected (saved as absent)
@@ -50,7 +52,7 @@ const marks: Record<WorkerState, { icon: IconName | null; fg: string; bg: string
 	leave: { icon: "info", fg: colors.info.fg, bg: colors.info.bg, label: "attendance.statusLeave", tone: "info" },
 };
 
-function WorkerRowBase({ worker, record, doubleDuty, onPress }: WorkerRowProps) {
+function WorkerRowBase({ worker, record, doubleDuty, onPress, onHalfDay }: WorkerRowProps) {
 	const t = useT();
 	const language = useLanguageStore((s) => s.language);
 	const state: WorkerState = record?.status ?? "not_marked";
@@ -66,6 +68,8 @@ function WorkerRowBase({ worker, record, doubleDuty, onPress }: WorkerRowProps) 
 	// sent here from another centre: say where from, next to the ID
 	const from = worker.moved_from == null ? null : worker.moved_from ? t("attendance.fromCentre", { centre: worker.moved_from }) : t("attendance.fromAnother");
 	const extra = doubleDuty ? doubleDutyBadge[doubleDuty.status] : undefined;
+	// a present worker's day can be made a half day (and back); not for someone working at another centre
+	const canHalf = !!onHalfDay && !away && record?.status === "present";
 
 	return (
 		<Pressable
@@ -88,15 +92,29 @@ function WorkerRowBase({ worker, record, doubleDuty, onPress }: WorkerRowProps) 
 				<Text variant="caption" tone="subtle" numberOfLines={1} tabular>
 					{from ? `${workerCode(worker)} · ${from}` : workerCode(worker)}
 				</Text>
-				{extra ? (
+				{extra || record?.is_half_day ? (
 					<View style={styles.extra}>
-						<Badge label={t(extra.label)} tone={extra.tone} />
+						{record?.is_half_day ? <Badge label={t("attendance.halfDay")} tone="warning" /> : null}
+						{extra ? <Badge label={t(extra.label)} tone={extra.tone} /> : null}
 					</View>
 				) : null}
 			</View>
 			<Text variant="label" tone={away ? "subtle" : record?.is_late && state === "present" ? "warning" : mark.tone} tabular>
 				{status}
 			</Text>
+			{canHalf ? (
+				<Pressable
+					accessibilityRole="button"
+					accessibilityLabel={t("attendance.halfDay")}
+					hitSlop={spacing.sm}
+					onPress={() => onHalfDay?.(worker)}
+					style={({ pressed }) => [styles.half, record?.is_half_day ? styles.halfOn : null, pressed ? styles.pressed : null]}
+				>
+					<Text variant="label" tone={record?.is_half_day ? "warning" : "muted"}>
+						½
+					</Text>
+				</Pressable>
+			) : null}
 		</Pressable>
 	);
 }
@@ -119,5 +137,7 @@ const styles = StyleSheet.create({
 	body: { flex: 1, gap: spacing.xxs },
 	nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
 	name: { flexShrink: 1 },
-	extra: { flexDirection: "row" },
+	extra: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+	half: { minWidth: sizes.touch - spacing.sm, height: sizes.touch - spacing.sm, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, borderWidth: borderWidth.thin, borderColor: colors.borderStrong },
+	halfOn: { backgroundColor: colors.warning.bg, borderColor: colors.warning.fg },
 });

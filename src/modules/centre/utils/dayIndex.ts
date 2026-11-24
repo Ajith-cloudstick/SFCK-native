@@ -28,7 +28,11 @@ export function buildDayIndex(day: CentreDay): DayIndex {
 	for (const c of day.collections) collections.set(c.employee_id, [...(collections.get(c.employee_id) ?? []), c]);
 	const away = day.workers.filter((w) => !!w.working_at);
 	const markable = day.workers.filter((w) => !w.working_at);
-	const present = markable.filter((w) => attendance.get(w.id)?.status === "present");
+	// at work: marked present, or late and waiting for approval (their work and collection are recorded meanwhile)
+	const present = markable.filter((w) => {
+		const status = attendance.get(w.id)?.status;
+		return status === "present" || status === "pending";
+	});
 	return {
 		day,
 		attendance,
