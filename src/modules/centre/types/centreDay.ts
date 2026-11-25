@@ -232,6 +232,8 @@ export type CollectionPayload = {
 	latex_kg: number;
 	sample_drc: number;
 	scrap_kg: number;
+	// the scrap\'s own DRC %, when it was tested; left out, the centre\'s standard share is used
+	scrap_drc?: number;
 };
 
 export type ChemicalUsagePayload = {

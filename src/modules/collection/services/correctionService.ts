@@ -6,6 +6,7 @@ export type CorrectionInput = {
 	latex_kg: number;
 	sample_drc: number;
 	scrap_kg: number;
+	scrap_drc?: number;
 	reason: string;
 };
 

@@ -194,7 +194,7 @@ function AttendanceList({ index }: { index: DayIndex }) {
 				}}
 			/>
 			<HalfDaySheet
-				key={halfFor?.id ?? "none"}
+				key={`half-${halfFor?.id ?? "none"}`}
 				worker={halfFor}
 				record={halfFor ? index.attendance.get(halfFor.id) : undefined}
 				candidates={halfCandidates}
@@ -218,7 +218,7 @@ function AttendanceList({ index }: { index: DayIndex }) {
 				onClose={() => setBringing(false)}
 			/>
 			<CollectionEntrySheet
-				key={collectFor?.id ?? "none"}
+				key={`collect-${collectFor?.id ?? "none"}`}
 				worker={collectFor}
 				assignment={collectFor ? index.blockAssignment.get(collectFor.id) : undefined}
 				scrapDrcPercent={index.day.scrap_drc_percent ?? 0}

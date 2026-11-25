@@ -5,10 +5,13 @@ import { Badge } from "@/common/components/ui/Badge";
 import { BottomSheet } from "@/common/components/ui/BottomSheet";
 import { Button } from "@/common/components/ui/Button";
 import { Card } from "@/common/components/ui/Card";
+import { Icon } from "@/common/components/ui/Icon";
 import { Text } from "@/common/components/ui/Text";
 import { TextField } from "@/common/components/ui/TextField";
+import { toastPalette } from "@/common/components/ui/Toast";
+import { useToast, type ToastTone } from "@/common/hooks/useToast";
 import { useT } from "@/common/i18n";
-import { colors, spacing } from "@/common/theme/tokens";
+import { colors, radius, spacing } from "@/common/theme/tokens";
 import { useDayIndex } from "@/modules/centre/store/centreDayStore";
 import type { Worker } from "@/modules/centre/types/centreDay";
 import { workerCode } from "@/modules/centre/utils/dayIndex";
@@ -32,6 +35,8 @@ export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: Manu
 	const markWorker = useMarkWorker();
 	const [code, setCode] = useState("");
 	const [busy, setBusy] = useState(false);
+	// what marking just said (late and waiting, already marked...), shown here because the sheet covers the screen behind it
+	const [result, setResult] = useState<{ message: string; tone: ToastTone } | null>(null);
 
 	const match = index && code.trim().length >= 2 ? findWorkerByCode(index.day.workers, code) : null;
 	const record = match ? index?.attendance.get(match.id) : undefined;
@@ -45,6 +50,7 @@ export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: Manu
 
 	const close = () => {
 		setCode("");
+		setResult(null);
 		onClose();
 	};
 
@@ -56,8 +62,11 @@ export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: Manu
 		}
 		if (!match || record || busy) return;
 		setBusy(true);
+		setResult(null);
 		const outcome = await markWorker(match);
 		setBusy(false);
+		const { message, tone } = useToast.getState();
+		if (message) setResult({ message, tone });
 		onMarked?.(match, outcome);
 		if (outcome === "marked" || outcome === "waiting") setCode("");
 	};
@@ -83,7 +92,10 @@ export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: Manu
 				label={t("attendance.workerId")}
 				icon="hash"
 				value={code}
-				onChangeText={setCode}
+				onChangeText={(text) => {
+						setCode(text);
+						setResult(null);
+					}}
 				placeholder="SFCK-000123"
 				autoCapitalize="characters"
 				autoCorrect={false}
@@ -92,6 +104,14 @@ export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: Manu
 				onSubmitEditing={() => void confirm()}
 				error={code.trim().length >= 3 && !match ? t("attendance.notInCentre") : null}
 			/>
+			{result ? (
+				<View style={[styles.result, { backgroundColor: toastPalette[result.tone].bg }]} accessibilityLiveRegion="polite">
+					<Icon name={toastPalette[result.tone].icon} size="sm" color={toastPalette[result.tone].fg} />
+					<Text variant="bodyStrong" style={[styles.resultText, { color: toastPalette[result.tone].fg }]}>
+						{result.message}
+					</Text>
+				</View>
+			) : null}
 			{match ? (
 				<Card style={styles.match}>
 					<View style={styles.matchRow}>
@@ -115,6 +135,8 @@ export function ManualEntrySheet({ visible, onClose, onMarked, onCollect }: Manu
 }
 
 const styles = StyleSheet.create({
+	result: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, borderRadius: radius.md },
+	resultText: { flex: 1 },
 	match: { backgroundColor: colors.brand[50], borderColor: colors.brand[200] },
 	matchRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 	matchBody: { flex: 1, gap: spacing.xxs },

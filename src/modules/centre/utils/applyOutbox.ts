@@ -102,7 +102,8 @@ function applyCollection(day: CentreDay, item: OutboxItem, id: number): CentreDa
 	const latex = num(p.latex_kg) ?? 0;
 	const drc = num(p.sample_drc) ?? 0;
 	const scrap = num(p.scrap_kg) ?? 0;
-	const dry = computeDry(latex, drc, scrap, day.scrap_drc_percent);
+	const scrapShare = (num(p.scrap_drc) ?? 0) > 0 ? (num(p.scrap_drc) as number) : day.scrap_drc_percent;
+	const dry = computeDry(latex, drc, scrap, scrapShare);
 	const collection = {
 		id,
 		client_uuid: item.clientUuid,
@@ -111,7 +112,7 @@ function applyCollection(day: CentreDay, item: OutboxItem, id: number): CentreDa
 		latex_kg: latex,
 		sample_drc: drc,
 		scrap_kg: scrap,
-		scrap_drc_percent: day.scrap_drc_percent,
+		scrap_drc_percent: scrapShare,
 		dry_latex: dry.dryLatex,
 		dry_scrap: dry.dryScrap,
 		total_dry: dry.totalDry,

@@ -57,7 +57,7 @@ export function Button({ label, onPress, variant = "primary", size = "md", icon,
 			) : (
 				<Animated.View style={[styles.content, { transform: [{ scale: press.scale }] }]}>
 					{icon ? <Icon name={icon} size="sm" color={tone.fg} /> : null}
-					<Text variant={size === "lg" ? "subheading" : "bodyStrong"} style={{ color: tone.fg }} numberOfLines={1}>
+					<Text variant={size === "lg" ? "subheading" : "bodyStrong"} style={[styles.label, { color: tone.fg }]} numberOfLines={1}>
 						{label}
 					</Text>
 				</Animated.View>
@@ -77,7 +77,8 @@ const styles = StyleSheet.create({
 	md: { minHeight: sizes.control, paddingHorizontal: spacing.lg },
 	lg: { minHeight: sizes.header, paddingHorizontal: spacing.xxl },
 	fullWidth: { alignSelf: "stretch" },
-	content: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+	content: { flexDirection: "row", alignItems: "center", gap: spacing.sm, maxWidth: "100%" },
+	label: { flexShrink: 1 },
 	pressed: { opacity: opacity.pressed },
 	disabled: { opacity: opacity.disabled },
 });

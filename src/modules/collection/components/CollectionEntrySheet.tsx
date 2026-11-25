@@ -29,12 +29,17 @@ export function CollectionEntrySheet({ worker, assignment, scrapDrcPercent, onCl
 	const [latex, setLatex] = useState("");
 	const [drc, setDrc] = useState("");
 	const [scrap, setScrap] = useState("");
+	// blank means the standard share; typed, it is the scrap's own DRC
+	const [scrapDrc, setScrapDrc] = useState("");
 	const [submitted, setSubmitted] = useState(false);
 	const [busy, setBusy] = useState(false);
 
 	const values = { latex: parseNumber(latex) ?? (latex.trim() === "" ? 0 : null), drc: parseNumber(drc), scrap: parseNumber(scrap) ?? (scrap.trim() === "" ? 0 : null) };
 	const errors = validateCollection(values);
-	const dry = computeDry(Math.max(values.latex ?? 0, 0), Math.max(values.drc ?? 0, 0), Math.max(values.scrap ?? 0, 0), scrapDrcPercent);
+	const scrapDrcValue = parseNumber(scrapDrc);
+	const scrapDrcBad = scrapDrc.trim() !== "" && (scrapDrcValue === null || scrapDrcValue < 1 || scrapDrcValue > 100);
+	const scrapShare = scrapDrc.trim() !== "" && !scrapDrcBad ? (scrapDrcValue as number) : scrapDrcPercent;
+	const dry = computeDry(Math.max(values.latex ?? 0, 0), Math.max(values.drc ?? 0, 0), Math.max(values.scrap ?? 0, 0), scrapShare);
 	const errorText = (field: CollectionField) => {
 		const key = errors[field];
 		return submitted && key ? t(key) : null;
@@ -44,7 +49,7 @@ export function CollectionEntrySheet({ worker, assignment, scrapDrcPercent, onCl
 	const save = async () => {
 		setSubmitted(true);
 		const day = currentDay();
-		if (!worker || !day || hasErrors(errors) || busy) return;
+		if (!worker || !day || hasErrors(errors) || scrapDrcBad || busy) return;
 		const latexKg = values.latex ?? 0;
 		const payload: CollectionPayload = {
 			cc_id: day.centre.id,
@@ -54,6 +59,7 @@ export function CollectionEntrySheet({ worker, assignment, scrapDrcPercent, onCl
 			latex_kg: latexKg,
 			sample_drc: latexKg > 0 ? (values.drc ?? 0) : 0,
 			scrap_kg: values.scrap ?? 0,
+			...(scrapShare !== scrapDrcPercent ? { scrap_drc: scrapShare } : {}),
 		};
 		setBusy(true);
 		try {
@@ -89,7 +95,8 @@ export function CollectionEntrySheet({ worker, assignment, scrapDrcPercent, onCl
 				<NumberField label={t("collection.drc")} unit={t("common.percent")} value={drc} onChangeText={setDrc} placeholder="35" error={errorText("drc")} returnKeyType="next" />
 			</View>
 			<View style={styles.row}>
-				<NumberField label={t("collection.scrap")} unit={t("common.kg")} value={scrap} onChangeText={setScrap} placeholder="0.0" error={errorText("scrap")} returnKeyType="done" />
+				<NumberField label={t("collection.scrap")} unit={t("common.kg")} value={scrap} onChangeText={setScrap} placeholder="0.0" error={errorText("scrap")} returnKeyType="next" />
+				<NumberField label={t("collection.scrapDrc")} unit={t("common.percent")} value={scrapDrc} onChangeText={setScrapDrc} placeholder={String(scrapDrcPercent)} error={submitted && scrapDrcBad ? t("collection.drcRange") : null} returnKeyType="done" />
 			</View>
 
 			<View style={styles.result}>
@@ -104,7 +111,7 @@ export function CollectionEntrySheet({ worker, assignment, scrapDrcPercent, onCl
 					</View>
 					<View style={styles.line}>
 						<Text variant="label" tone="muted">
-							{t("collection.dryScrap", { ratio: scrapDrcPercent })}
+							{t("collection.dryScrap")}
 						</Text>
 						<Text variant="subheading" tabular>
 							{`${formatKg(dry.dryScrap)} ${t("common.kg")}`}

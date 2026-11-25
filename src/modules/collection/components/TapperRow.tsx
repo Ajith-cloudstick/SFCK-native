@@ -83,5 +83,5 @@ const styles = StyleSheet.create({
 	footer: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 	summary: { flex: 1 },
 	actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-	flex: { flexGrow: 1, flexBasis: 150 },
+	flex: { flexGrow: 1, flexBasis: 190 },
 });
